@@ -1,7 +1,7 @@
 
 FROM gradle:8.7-jdk21 AS build
 WORKDIR /app
-COPY zip/ .          # ← copy contents of zip/ not the root
+COPY zip/ .         
 RUN gradle build -x test --no-daemon
 
 FROM eclipse-temurin:21-jre
