@@ -1,14 +1,10 @@
-# Use official Java 21 runtime
-FROM eclipse-temurin:21-jdk
 
-# Set working directory inside container
+FROM gradle:8.7-jdk21 AS build
 WORKDIR /app
-
-# Copy project files
 COPY . .
-
-# Build with Gradle (skip tests for faster deploy)
-RUN ./gradlew build -x test
-
-# Run the JAR (adjust name if different)
-CMD ["java", "-jar", "build/libs/your-app.jar"]
+RUN gradle build -x test --no-daemon
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=build /app/build/libs/app.jar app.jar
+EXPOSE 8027
+ENTRYPOINT ["java", "-jar", "app.jar"]
