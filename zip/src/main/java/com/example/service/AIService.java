@@ -1,20 +1,22 @@
 package com.example.service;
 
+
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.*;
+import java.net.*;
+import java.util.*;
 
 @Service
 public class AIService {
 
-    private final String OLLAMA_URL = "http://localhost:11434/api/generate";
+    @Value("${GROQ_API_KEY}")
+    private String apiKey;
+
+    private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
     public String askAI(String prompt) {
         return askAI(prompt, false);
@@ -22,48 +24,48 @@ public class AIService {
 
     public String askAI(String prompt, boolean requireJson) {
         try {
-            URL url = new URL(OLLAMA_URL);
+            URL url = new URL(GROQ_URL);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
             conn.setDoOutput(true);
-            ObjectMapper mapper = new ObjectMapper();
-            Map<String, Object> bodyMap = new HashMap<>();
-            bodyMap.put("model", "qwen2:1.5b");
-            bodyMap.put("prompt", prompt);
-            bodyMap.put("stream", false);
-            if (requireJson) {
-                bodyMap.put("format", "json");
-            }
 
-            String jsonInput = mapper.writeValueAsString(bodyMap);
+            ObjectMapper mapper = new ObjectMapper();
+
+            Map<String, Object> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", prompt);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("model", "llama3-8b-8192");
+            body.put("messages", List.of(message));
+            body.put("max_tokens", 1024);
+            if (requireJson) {
+                body.put("response_format", Map.of("type", "json_object"));
+            }
 
             try (OutputStream os = conn.getOutputStream()) {
-                os.write(jsonInput.getBytes());
-                os.flush();
+                os.write(mapper.writeValueAsBytes(body));
             }
-            int status = conn.getResponseCode();
 
-            BufferedReader br;
-            if (status >= 200 && status < 300) {
-                br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            } else {
-                br = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
-            }
+            BufferedReader br = new BufferedReader(
+                new InputStreamReader(
+                    conn.getResponseCode() < 300
+                        ? conn.getInputStream()
+                        : conn.getErrorStream()
+                )
+            );
 
             StringBuilder response = new StringBuilder();
             String line;
+            while ((line = br.readLine()) != null) response.append(line);
 
-            while ((line = br.readLine()) != null) {
-                response.append(line);
-            }
-            System.out.println("OLLAMA RAW RESPONSE: " + response);
             Map<String, Object> json = mapper.readValue(response.toString(), Map.class);
-
-
-
-            return (String) json.getOrDefault("response", "AI error");
+            List<?> choices = (List<?>) json.get("choices");
+            Map<?, ?> first = (Map<?, ?>) choices.get(0);
+            Map<?, ?> msg = (Map<?, ?>) first.get("message");
+            return (String) msg.get("content");
 
         } catch (Exception e) {
             e.printStackTrace();
