@@ -1,21 +1,15 @@
 package com.example.service;
-
-
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.io.*;
 import java.net.*;
 import java.util.*;
 
 @Service
 public class AIService {
-
     @Value("${GROQ_API_KEY}")
     private String apiKey;
-
     private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
     public String askAI(String prompt) {
@@ -38,7 +32,7 @@ public class AIService {
             message.put("content", prompt);
 
             Map<String, Object> body = new HashMap<>();
-            body.put("model", "llama3-8b-8192");
+            body.put("model", "llama-3.1-8b-instant"); // ← updated model
             body.put("messages", List.of(message));
             body.put("max_tokens", 1024);
             if (requireJson) {
@@ -49,9 +43,10 @@ public class AIService {
                 os.write(mapper.writeValueAsBytes(body));
             }
 
+            int statusCode = conn.getResponseCode();
             BufferedReader br = new BufferedReader(
                 new InputStreamReader(
-                    conn.getResponseCode() < 300
+                    statusCode < 300
                         ? conn.getInputStream()
                         : conn.getErrorStream()
                 )
@@ -60,6 +55,10 @@ public class AIService {
             StringBuilder response = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) response.append(line);
+            if (statusCode >= 300) {
+                System.err.println("Groq API error " + statusCode + ": " + response);
+                return "AI error: " + response;
+            }
 
             Map<String, Object> json = mapper.readValue(response.toString(), Map.class);
             List<?> choices = (List<?>) json.get("choices");
@@ -69,7 +68,7 @@ public class AIService {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return "AI error";
+            return "AI error: " + e.getMessage();
         }
     }
 }
