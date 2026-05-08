@@ -1,9 +1,7 @@
 package com.example.controller;
 
 import com.example.service.AIService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
 
 @RestController
@@ -11,52 +9,37 @@ import java.util.Map;
 @CrossOrigin
 public class AIController {
 
-
-
-    @Autowired
-    private AIService aiService;
-
+    private final AIService aiService;
 
     public AIController(AIService aiService) {
         this.aiService = aiService;
-
     }
-
 
     @GetMapping("/test")
     public String test() {
         String prompt = """
         Say hello in JSON format.
-
         Return ONLY JSON:
         {
           "message": "hello"
         }
         """;
-
         return aiService.askAI(prompt, true);
     }
 
     @PostMapping("/generate-quiz")
     public String generateQuiz(@RequestBody Map<String, String> body) {
-
         String topic = body.get("topic");
-
         String prompt = """
 You are a JSON API.
-
 Return ONLY valid JSON.
 No explanation.
-
 Generate a multiple choice quiz.
-
 Topic: %s
-
 RULES:
 - Each question must have 4 options
 - The correctAnswer MUST be EXACTLY one of the options (full text, not A/B/C/D)
 - Do NOT return letters like A or B
-
 FORMAT:
 {
   "questions": [
@@ -68,16 +51,14 @@ FORMAT:
   ]
 }
 """.formatted(topic);
-
         return aiService.askAI(prompt, true);
     }
 
     @PostMapping("/analyze-cv")
     public String analyzeCv(@RequestBody Map<String, String> body) {
-
         String cvText = body.get("cvText");
+        String jobTitle = body.get("jobTitle");       // ← was missing
         String requirements = body.get("requirements");
-
         String prompt = """
 You are a strict HR assistant evaluating candidate CVs.
 
@@ -113,8 +94,6 @@ Return ONLY valid JSON, no markdown, no extra text:
   "skillsFound": ["<skill1>", "<skill2>"]
 }
 """.formatted(jobTitle, requirements, cvText);
-
         return aiService.askAI(prompt, true);
     }
-
 }
