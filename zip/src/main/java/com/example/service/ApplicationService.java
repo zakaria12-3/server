@@ -2,7 +2,6 @@ package com.example.service;
 
 import com.example.dto.ApplyResponseDto;
 import com.example.dto.ApplicationDto;
-
 import com.example.model.Application;
 import com.example.model.Job;
 import com.example.model.User;
@@ -10,10 +9,13 @@ import com.example.repository.ApplicationRepository;
 import com.example.repository.JobRepository;
 import com.example.repository.QuizRepository;
 import com.example.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -22,7 +24,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Map;
-import java.io.File;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +31,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class ApplicationService {
 
+    @Value("${app.base-url}")                         
+    private String baseUrl;
 
     private final ApplicationRepository applicationRepository;
     private final JobRepository jobRepository;
@@ -52,10 +55,7 @@ public class ApplicationService {
         this.aiService = aiService;
     }
 
-
-
     public ApplyResponseDto apply(Long jobId, String email, MultipartFile file) throws IOException {
-
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found"));
 
@@ -85,7 +85,6 @@ public class ApplicationService {
 
         String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
         Path filePath = uploadPath.resolve(fileName);
-
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
         var quiz = quizRepository.findByJobId(jobId).orElse(null);
@@ -104,11 +103,9 @@ public class ApplicationService {
     }
 
     public List<Application> getApplications(Long jobId, String status) {
-
         if (status != null) {
             return applicationRepository.findByJobIdAndStatus(jobId, status);
         }
-
         return applicationRepository.findByJobId(jobId);
     }
 
@@ -130,19 +127,16 @@ public class ApplicationService {
         dto.setScore(app.getQuizScore());
         dto.setQuizPassed(app.getQuizPassed());
         dto.setJobTitle(app.getJob().getTitle());
-        dto.setCvUrl("http://localhost:8027/files/cv/" + app.getCvPath());
+        dto.setCvUrl(baseUrl + "/files/cv/" + app.getCvPath());  
         dto.setAiMatchScore(app.getAiMatchScore());
         dto.setAiSkillsFound(app.getAiSkillsFound());
         return dto;
     }
 
     public Application updateStatus(Long id, String status) {
-
         Application app = applicationRepository.findById(Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Application not found"));
 
-
-        //ACCEPTED   ~ REJECTED ~ PENDING
         app.setStatus(status);
         String email = app.getCandidate().getEmail();
         String jobTitle = app.getJob().getTitle();
@@ -151,32 +145,23 @@ public class ApplicationService {
             if (app.getMeetingLink() == null) {
                 String meetingLink = generateMeeting(app.getId());
                 app.setMeetingLink(meetingLink);
-                emailService.sendInterviewEmail(
-                        email,
-                        jobTitle,
-                        meetingLink
-                );
-            }} else {
-                emailService.sendApplicationResultEmail(
-                        email,
-                        status, jobTitle
-                );
+                emailService.sendInterviewEmail(email, jobTitle, meetingLink);
             }
-
-
-            return applicationRepository.save(app);
-
-
+        } else {
+            emailService.sendApplicationResultEmail(email, status, jobTitle);
         }
-        public String generateMeeting(Long applicationId){
-            Application app = applicationRepository.findById(applicationId)
-                    .orElseThrow(() -> new RuntimeException("Application not found"));
-            String roomName = "job-" + app.getJob().getId() + "-user-" + app.getCandidate().getId();
-            String link = "https://meet.jit.si/" + roomName;
-            applicationRepository.save(app);
 
-            return link;
-        }
+        return applicationRepository.save(app);
+    }
+
+    public String generateMeeting(Long applicationId) {
+        Application app = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+        String roomName = "job-" + app.getJob().getId() + "-user-" + app.getCandidate().getId();
+        String link = "https://meet.jit.si/" + roomName;
+        applicationRepository.save(app);
+        return link;
+    }
 
     public void deleteApplication(Long id) {
         applicationRepository.deleteById(id);
@@ -186,7 +171,7 @@ public class ApplicationService {
         return applicationRepository.findByJobId(jobId)
                 .stream()
                 .filter(app -> app.getAiMatchScore() != null)
-                .sorted((a, b) -> Integer.compare(b.getAiMatchScore(), a.getAiMatchScore())) // highest first
+                .sorted((a, b) -> Integer.compare(b.getAiMatchScore(), a.getAiMatchScore()))
                 .map(this::mapToDto)
                 .toList();
     }
@@ -199,13 +184,15 @@ public class ApplicationService {
             throw new RuntimeException("No CV found for this application");
         }
 
-        File cvFile = new File(System.getProperty("user.dir") + "/uploads/cv/" + app.getCvPath());
-        if (!cvFile.exists()) {
-            throw new RuntimeException("CV file not found on disk");
+        // ← fetch CV over HTTP instead of reading from local disk
+        String cvUrl = baseUrl + "/files/cv/" + app.getCvPath();
+        byte[] pdfBytes;
+        try (InputStream in = new URL(cvUrl).openStream()) {
+            pdfBytes = in.readAllBytes();
         }
 
         String cvText = "";
-        try (PDDocument document = PDDocument.load(cvFile)) {
+        try (PDDocument document = PDDocument.load(pdfBytes)) {
             PDFTextStripper stripper = new PDFTextStripper();
             cvText = stripper.getText(document);
         }
@@ -213,23 +200,23 @@ public class ApplicationService {
         String jobTitle = app.getJob().getTitle();
         String requirements = app.getJob().getDescription();
         String prompt = """
-        You are a strict and highly accurate HR assistant evaluating candidate CVs. 
+        You are a strict and highly accurate HR assistant evaluating candidate CVs.
         Your task is to analyze the provided Candidate Text against the Job Title and Job Requirements, and return a match score (0-100) and a list of found skills.
-        
+
         STRICT RULES:
         1. DOCUMENT VALIDATION: First, verify if the "Candidate Text" is actually a CV/Resume. If it looks like a receipt, an invoice, a medical document, a random text, or anything other than a CV, you MUST return a matchScore of 0 and an empty list for skillsFound.
         2. REQUIREMENT MATCHING: Identify the key skills and qualifications in the Job Title and Job Requirements.
         3. STRICT SKILL EXTRACTION: Only extract skills that are EXPLICITLY written in the Candidate Text. DO NOT hallucinate, infer, or assume skills.
-        4. SCORING: Calculate the score based ONLY on the exact match of required skills found in the Candidate Text. If no required skills are found, the score MUST be 0. If it's completely unrelated, the score MUST be 0.
-        
+        4. SCORING: Calculate the score based ONLY on the exact match of required skills found in the Candidate Text. If no required skills are found, the score MUST be 0.
+
         Job Title: %s
-        
+
         Job Requirements:
         %s
-        
+
         Candidate Text:
         %s
-        
+
         Return exactly and ONLY valid JSON matching this schema, with no additional text or markdown formatting:
         {
           "matchScore": <number between 0 and 100>,
