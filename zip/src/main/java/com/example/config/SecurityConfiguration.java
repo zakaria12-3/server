@@ -70,7 +70,7 @@ public class SecurityConfiguration {
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:4200",
                 "http://localhost:8027",
-                "https://project-0ja8o.vercel.app" 
+               "https://step-up-eta-taupe.vercel.app" 
         ));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
