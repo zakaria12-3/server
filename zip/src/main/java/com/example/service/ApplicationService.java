@@ -195,6 +195,9 @@ public class ApplicationService {
         try (PDDocument document = PDDocument.load(pdfBytes)) {
             PDFTextStripper stripper = new PDFTextStripper();
             cvText = stripper.getText(document);
+            if (cvText.length() > 8000) {
+                    cvText = cvText.substring(0, 8000);
+                                        }
         }
 
         String jobTitle = app.getJob().getTitle();
