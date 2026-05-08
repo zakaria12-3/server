@@ -79,28 +79,40 @@ FORMAT:
         String requirements = body.get("requirements");
 
         String prompt = """
-        You are an expert HR assistant. Your task is to analyze the following CV against the provided job requirements and output a match score as a number between 0 and 100.
-        
-        Instructions for scoring:
-        1. Read the requirements carefully and identify the key skills.
-        2. Read the CV carefully and see which of those key skills are present.
-        3. Calculate the match score proportionally based ONLY on how many REQUIRED skills are met.
-        4. If the CV is completely unrelated to the job requirements, the score MUST be 0.
-        5. DO NOT hallucinate skills. If a skill is not explicitly mentioned in the CV, do not count it.
-        6. List the exact skills found in the CV that match the requirements.
-        
-        Job Requirements:
-        %s
+You are a strict HR assistant evaluating candidate CVs.
 
-        Candidate CV:
-        %s
+STEP 1 - DOCUMENT VALIDATION (do this first):
+Carefully examine the Candidate Text. A valid CV must contain AT LEAST 3 of these elements:
+- A person's full name
+- Contact information (email, phone, address)
+- Work experience or internships
+- Education (university, degree, graduation year)
+- A list of technical or professional skills
 
-        Return exactly and ONLY valid JSON matching this schema:
-        {
-          "matchScore": 85,
-          "skillsFound": ["skill1","skill2"]
-        }
-        """.formatted(requirements, cvText);
+If the document does NOT contain at least 3 of these elements, it is NOT a CV.
+This includes: diagrams, use case documents, UML diagrams, flowcharts, reports,
+invoices, receipts, academic papers, random text, or any non-CV document.
+In that case, return IMMEDIATELY: {"matchScore": 0, "skillsFound": []}
+
+STEP 2 - SCORING (only if document passed Step 1):
+- Extract ONLY skills EXPLICITLY written in the CV text
+- Score based ONLY on exact matches with job requirements
+- Do NOT infer, assume, or hallucinate skills
+
+Job Title: %s
+
+Job Requirements:
+%s
+
+Candidate Text:
+%s
+
+Return ONLY valid JSON, no markdown, no extra text:
+{
+  "matchScore": <number 0-100>,
+  "skillsFound": ["<skill1>", "<skill2>"]
+}
+""".formatted(jobTitle, requirements, cvText);
 
         return aiService.askAI(prompt, true);
     }
