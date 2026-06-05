@@ -1,37 +1,34 @@
 package com.example.service;
 
-import com.example.dto.GoogleAuthDto;
 import com.example.dto.LoginUserDto;
 import com.example.dto.RegisterUserDto;
 import com.example.dto.VerifyUserDto;
 import com.example.model.Role;
 import com.example.model.User;
 import com.example.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 public class AuthenticationService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthenticationService.class);
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final com.example.repository.CompanyRepository companyRepository;
-
-    @Value("${google.client-id}")
-    private String googleClientId;
 
     public AuthenticationService(
             UserRepository userRepository,
@@ -47,6 +44,7 @@ public class AuthenticationService {
         this.companyRepository = companyRepository;
     }
 
+    @Transactional
     public User signup(RegisterUserDto input) {
         if (userRepository.findByEmail(input.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
@@ -59,22 +57,29 @@ public class AuthenticationService {
         user.setVerificationCode(generateVerificationCode());
         user.setVerificationCodeExpiresAt(LocalDateTime.now().plusMinutes(7));
         user.setEnabled(false);
+        user.setEmailVerified(false);
+        user.setPhone(input.getRecruiterPhone());
+        user.setJobTitle(input.getRecruiterJobTitle());
 
         String role = input.getRole();
         if ("RECRUITER".equalsIgnoreCase(role)) {
             user.setRole(Role.ROLE_RECRUITER);
+            user.setApprovalStatus("PENDING");
             if (input.getCompanyName() != null && !input.getCompanyName().trim().isEmpty()) {
                 com.example.model.Company company = companyRepository.findByName(input.getCompanyName())
                         .orElseGet(() -> {
                             com.example.model.Company newCompany = new com.example.model.Company(input.getCompanyName());
                             return companyRepository.save(newCompany);
                         });
+                applyCompanyDetails(company, input);
                 user.setCompany(company);
             }
         } else if ("ADMIN".equalsIgnoreCase(role)) {
             user.setRole(Role.ROLE_ADMIN);
+            user.setApprovalStatus("APPROVED");
         } else if ("CANDIDATE".equalsIgnoreCase(role)) {
             user.setRole(Role.ROLE_CANDIDATE);
+            user.setApprovalStatus("APPROVED");
         } else {
             throw new RuntimeException("Invalid role provided");
         }
@@ -84,12 +89,36 @@ public class AuthenticationService {
         return savedUser;
     }
 
+    private void applyCompanyDetails(com.example.model.Company company, RegisterUserDto input) {
+        company.setLegalName(input.getCompanyLegalName());
+        company.setRegistrationNumber(input.getRegistrationNumber());
+        company.setTaxIdentifier(input.getTaxIdentifier());
+        company.setIndustry(input.getIndustry());
+        company.setCompanySize(input.getCompanySize());
+        company.setAddress(input.getCompanyAddress());
+        company.setCity(input.getCompanyCity());
+        company.setCountry(input.getCompanyCountry());
+        company.setWebsite(input.getCompanyWebsite());
+        company.setPhone(input.getCompanyPhone());
+        company.setProfessionalEmail(input.getCompanyEmail());
+        companyRepository.save(company);
+    }
+
     public User authenticate(LoginUserDto input) {
         User user = userRepository.findByEmail(input.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!user.isEnabled()) {
+        if (!user.isEmailVerified()) {
             throw new RuntimeException("Account not verified");
+        }
+        if (user.getRole() == Role.ROLE_RECRUITER && "PENDING".equalsIgnoreCase(user.getApprovalStatus())) {
+            throw new RuntimeException("Recruiter account is waiting for admin approval");
+        }
+        if (user.getRole() == Role.ROLE_RECRUITER && "REJECTED".equalsIgnoreCase(user.getApprovalStatus())) {
+            throw new RuntimeException("Recruiter account was rejected by the admin");
+        }
+        if (!user.isEnabled()) {
+            throw new RuntimeException("Account is disabled");
         }
 
         try {
@@ -100,105 +129,34 @@ public class AuthenticationService {
             throw new RuntimeException("Invalid email or password");
         }
 
-        return user;
-    }
-
-    public User authenticateWithGoogle(GoogleAuthDto input) {
-        if (input.getIdToken() == null || input.getIdToken().isBlank()) {
-            throw new RuntimeException("Google token is required");
-        }
-
-        Map<String, Object> googleUser = verifyGoogleToken(input.getIdToken());
-        String email = String.valueOf(googleUser.get("email")).toLowerCase();
-        String fallbackName = email.substring(0, email.indexOf("@"));
-        String name = String.valueOf(googleUser.getOrDefault("name", fallbackName));
-        String picture = String.valueOf(googleUser.getOrDefault("picture", ""));
-
-        User user = userRepository.findByEmail(email).orElseGet(() -> {
-            User newUser = new User(uniqueUsername(name, email), email, passwordEncoder.encode(generateRandomPassword()));
-            newUser.setRole(resolveRole(input.getRole()));
-            newUser.setEnabled(true);
-            return newUser;
-        });
-
-        user.setEnabled(true);
-        if (user.getRole() == null) {
-            user.setRole(resolveRole(input.getRole()));
-        }
-        if (!picture.isBlank()) {
-            user.setAvatarUrl(picture);
-        }
-
+        user.setLastLoginAt(LocalDateTime.now());
         return userRepository.save(user);
-    }
-
-    private Map<String, Object> verifyGoogleToken(String idToken) {
-        if (googleClientId == null || googleClientId.isBlank()) {
-            throw new RuntimeException("Google client id is not configured");
-        }
-
-        RestTemplate restTemplate = new RestTemplate();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> response = restTemplate.getForObject(
-                "https://oauth2.googleapis.com/tokeninfo?id_token={idToken}",
-                Map.class,
-                idToken
-        );
-
-        if (response == null || response.get("email") == null) {
-            throw new RuntimeException("Invalid Google token");
-        }
-        if (!googleClientId.equals(response.get("aud"))) {
-            throw new RuntimeException("Google token audience does not match this app");
-        }
-        if (!"true".equals(String.valueOf(response.get("email_verified")))) {
-            throw new RuntimeException("Google email is not verified");
-        }
-
-        return response;
-    }
-
-    private Role resolveRole(String role) {
-        if ("RECRUITER".equalsIgnoreCase(role)) {
-            return Role.ROLE_RECRUITER;
-        }
-        if ("ADMIN".equalsIgnoreCase(role)) {
-            return Role.ROLE_ADMIN;
-        }
-        return Role.ROLE_CANDIDATE;
-    }
-
-    private String uniqueUsername(String name, String email) {
-        String base = name == null || name.isBlank() ? email.substring(0, email.indexOf("@")) : name;
-        base = base.trim().replaceAll("[^A-Za-z0-9_]", "_");
-        if (base.isBlank()) {
-            base = "google_user";
-        }
-
-        String username = base;
-        int suffix = 1;
-        while (userRepository.findByUsername(username).isPresent()) {
-            username = base + suffix;
-            suffix++;
-        }
-        return username;
-    }
-
-    private String generateRandomPassword() {
-        byte[] bytes = new byte[32];
-        new SecureRandom().nextBytes(bytes);
-        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     public void verifyUser(VerifyUserDto input) {
         Optional<User> optionalUser = userRepository.findByEmail(input.getEmail());
         if (optionalUser.isPresent()) {
             User user = optionalUser.get();
+            if (user.isEmailVerified() && user.getVerificationCode() == null) {
+                return;
+            }
+            if (user.getVerificationCodeExpiresAt() == null || user.getVerificationCode() == null) {
+                throw new RuntimeException("No active verification code. Please request a new code.");
+            }
             if (user.getVerificationCodeExpiresAt().isBefore(LocalDateTime.now())) {
                 throw new RuntimeException("Verification code has expired !");
             }
             if (user.getVerificationCode().equals(input.getVerificationCode())) {
-                user.setEnabled(true);
+                user.setEmailVerified(true);
+                if (user.getRole() == Role.ROLE_RECRUITER) {
+                    user.setEnabled(false);
+                    if (!"REJECTED".equalsIgnoreCase(user.getApprovalStatus())) {
+                        user.setApprovalStatus("PENDING");
+                    }
+                } else {
+                    user.setEnabled(true);
+                    user.setApprovalStatus("APPROVED");
+                }
                 user.setVerificationCode(null);
                 user.setVerificationCodeExpiresAt(null);
                 userRepository.save(user);
@@ -214,7 +172,7 @@ public class AuthenticationService {
         Optional<User> optionalUser = userRepository.findByEmail(email);
         if (optionalUser.isPresent()) {
             User user = optionalUser.get();
-            if (user.isEnabled()) {
+            if (user.isEmailVerified()) {
                 throw new RuntimeException("Account is already verified !");
             }
             user.setVerificationCode(generateVerificationCode());
@@ -242,13 +200,8 @@ public class AuthenticationService {
                 + "</body>"
                 + "</html>";
 
-        CompletableFuture.runAsync(() -> {
-            try {
-                emailService.sendVerificationEmail(user.getEmail(), subject, htmlMessage);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+        emailService.sendVerificationEmail(user.getEmail(), subject, htmlMessage);
+        LOGGER.info("Verification email sent to {}", user.getEmail());
     }
 
     private String generateVerificationCode() {

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @Entity
@@ -22,6 +23,17 @@ public class Job {
     private String company;
 
     private LocalDateTime createdAt;
+
+    private LocalDate expirationDate;
+
+    private Boolean active = true;
+
+    private Integer riskScore = 0;
+    private Boolean suspicious = false;
+    private String moderationStatus = "APPROVED";
+
+    @Column(length = 1000)
+    private String moderationReason;
 
     @ManyToOne
     @JoinColumn(name = "recruiter_id")
@@ -78,12 +90,60 @@ public class Job {
         this.createdAt = createdAt;
     }
 
+    public LocalDate getExpirationDate() {
+        return expirationDate;
+    }
+
+    public void setExpirationDate(LocalDate expirationDate) {
+        this.expirationDate = expirationDate;
+    }
+
+    public Boolean getActive() {
+        return active == null || active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
     public User getRecruiter() {
         return recruiter;
     }
 
     public void setRecruiter(User recruiter) {
         this.recruiter = recruiter;
+    }
+
+    public int getRiskScore() {
+        return riskScore == null ? 0 : riskScore;
+    }
+
+    public void setRiskScore(Integer riskScore) {
+        this.riskScore = riskScore;
+    }
+
+    public boolean isSuspicious() {
+        return suspicious != null && suspicious;
+    }
+
+    public void setSuspicious(Boolean suspicious) {
+        this.suspicious = suspicious;
+    }
+
+    public String getModerationStatus() {
+        return moderationStatus == null ? "APPROVED" : moderationStatus;
+    }
+
+    public void setModerationStatus(String moderationStatus) {
+        this.moderationStatus = moderationStatus;
+    }
+
+    public String getModerationReason() {
+        return moderationReason;
+    }
+
+    public void setModerationReason(String moderationReason) {
+        this.moderationReason = moderationReason;
     }
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

@@ -1,5 +1,7 @@
 package com.example.dto;
 
+import java.time.LocalDateTime;
+
 public class ApplicationDto {
 
     private Long id;
@@ -17,7 +19,16 @@ public class ApplicationDto {
     private String cvUrl;
     private String status;
     private Boolean quizPassed;
+    private Boolean cheatingSuspected;
+    private Integer quizDurationSeconds;
+    private Integer quizIntegrityEventCount;
+    private String quizIntegrityReason;
     private String jobTitle;
+    private LocalDateTime appliedAt;
+    private String meetingLink;
+
+    public String getMeetingLink() { return meetingLink; }
+    public void setMeetingLink(String meetingLink) { this.meetingLink = meetingLink; }
 
     public String getJobTitle() { return jobTitle; }
     public void setJobTitle(String jobTitle) { this.jobTitle = jobTitle; }
@@ -28,6 +39,38 @@ public class ApplicationDto {
 
     public void setQuizPassed(Boolean quizPassed) {
         this.quizPassed = quizPassed;
+    }
+
+    public Boolean getCheatingSuspected() {
+        return cheatingSuspected;
+    }
+
+    public void setCheatingSuspected(Boolean cheatingSuspected) {
+        this.cheatingSuspected = cheatingSuspected;
+    }
+
+    public Integer getQuizDurationSeconds() {
+        return quizDurationSeconds;
+    }
+
+    public void setQuizDurationSeconds(Integer quizDurationSeconds) {
+        this.quizDurationSeconds = quizDurationSeconds;
+    }
+
+    public Integer getQuizIntegrityEventCount() {
+        return quizIntegrityEventCount;
+    }
+
+    public void setQuizIntegrityEventCount(Integer quizIntegrityEventCount) {
+        this.quizIntegrityEventCount = quizIntegrityEventCount;
+    }
+
+    public String getQuizIntegrityReason() {
+        return quizIntegrityReason;
+    }
+
+    public void setQuizIntegrityReason(String quizIntegrityReason) {
+        this.quizIntegrityReason = quizIntegrityReason;
     }
 
     public Long getId() {
@@ -60,6 +103,14 @@ public class ApplicationDto {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public LocalDateTime getAppliedAt() {
+        return appliedAt;
+    }
+
+    public void setAppliedAt(LocalDateTime appliedAt) {
+        this.appliedAt = appliedAt;
     }
 
     private Integer aiMatchScore;

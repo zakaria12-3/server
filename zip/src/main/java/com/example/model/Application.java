@@ -81,6 +81,44 @@ public class Application extends ApplyResponseDto {
     }
 
     private String status = "PENDING";
+    private Boolean cheatingSuspected = false;
+    private Integer quizDurationSeconds;
+    private Integer quizIntegrityEventCount = 0;
+
+    @Column(length = 1000)
+    private String quizIntegrityReason;
+
+    public Boolean getCheatingSuspected() {
+        return cheatingSuspected;
+    }
+
+    public void setCheatingSuspected(Boolean cheatingSuspected) {
+        this.cheatingSuspected = cheatingSuspected;
+    }
+
+    public Integer getQuizDurationSeconds() {
+        return quizDurationSeconds;
+    }
+
+    public void setQuizDurationSeconds(Integer quizDurationSeconds) {
+        this.quizDurationSeconds = quizDurationSeconds;
+    }
+
+    public Integer getQuizIntegrityEventCount() {
+        return quizIntegrityEventCount;
+    }
+
+    public void setQuizIntegrityEventCount(Integer quizIntegrityEventCount) {
+        this.quizIntegrityEventCount = quizIntegrityEventCount;
+    }
+
+    public String getQuizIntegrityReason() {
+        return quizIntegrityReason;
+    }
+
+    public void setQuizIntegrityReason(String quizIntegrityReason) {
+        this.quizIntegrityReason = quizIntegrityReason;
+    }
 
     public Long getId() {
         return id;

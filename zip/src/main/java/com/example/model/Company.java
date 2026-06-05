@@ -17,7 +17,19 @@ public class Company {
     @Column(nullable = false, unique = true)
     private String name;
 
+    private String legalName;
+    private String registrationNumber;
+    private String taxIdentifier;
     private String industry;
+    private String companySize;
+    private String address;
+    private String city;
+    private String country;
+    private String website;
+    private String phone;
+    private String professionalEmail;
+    private String subscriptionStatus = "FREE";
+    private String kycStatus = "PENDING";
     private String description;
     
     @OneToMany(mappedBy = "company")

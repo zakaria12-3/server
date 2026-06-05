@@ -11,4 +11,7 @@ public class UserProfileDto {
     private String headline;
     private String location;
     private String avatarUrl;
+    private String companyName;
+    private boolean reported;
+    private boolean suspended;
 }

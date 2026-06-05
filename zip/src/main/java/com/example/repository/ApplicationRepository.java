@@ -15,6 +15,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     void deleteByJobId(Long jobId);
     Optional<Application> findByJobIdAndCandidateId(Long jobId, Long candidateId);
 
+    Optional<Application> findByCvPath(String cvPath);
+
     boolean existsByJobIdAndCandidateId(Long jobId, Long candidateId);
 
     List<Application> findByJobIdAndStatus(Long jobId, String status);

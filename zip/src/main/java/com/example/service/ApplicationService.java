@@ -9,13 +9,11 @@ import com.example.repository.ApplicationRepository;
 import com.example.repository.JobRepository;
 import com.example.repository.QuizRepository;
 import com.example.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,12 +25,13 @@ import java.util.Map;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.util.UriUtils;
 
 @Service
 public class ApplicationService {
-
-    @Value("${app.base-url}")                         
-    private String baseUrl;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationService.class);
 
     private final ApplicationRepository applicationRepository;
     private final JobRepository jobRepository;
@@ -40,31 +39,42 @@ public class ApplicationService {
     private final QuizRepository quizRepository;
     private final EmailService emailService;
     private final AIService aiService;
+    private final JobService jobService;
 
     public ApplicationService(ApplicationRepository applicationRepository,
                               JobRepository jobRepository,
                               UserRepository userRepository,
                               QuizRepository quizRepository,
                               EmailService emailService,
-                              AIService aiService) {
+                              AIService aiService,
+                              JobService jobService) {
         this.applicationRepository = applicationRepository;
         this.jobRepository = jobRepository;
         this.userRepository = userRepository;
         this.quizRepository = quizRepository;
         this.emailService = emailService;
         this.aiService = aiService;
+        this.jobService = jobService;
     }
 
     public ApplyResponseDto apply(Long jobId, String email, MultipartFile file) throws IOException {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found"));
 
+        if (!jobService.isAvailable(job)) {
+            throw new RuntimeException("This job is no longer accepting applications");
+        }
+
         User candidate = userRepository.findByEmail(email)
                 .orElseGet(() -> userRepository.findByUsername(email)
                         .orElseThrow(() -> new RuntimeException("User not found")));
 
-        if (applicationRepository.existsByJobIdAndCandidateId(jobId, candidate.getId())) {
-            throw new RuntimeException("You already applied to this job");
+        var existingOpt = applicationRepository.findByJobIdAndCandidateId(jobId, candidate.getId());
+        if (existingOpt.isPresent()) {
+            Application existing = existingOpt.get();
+            if (!"PENDING_QUIZ".equals(existing.getStatus())) {
+                throw new RuntimeException("You already applied to this job");
+            }
         }
 
         if (file == null || file.isEmpty()) {
@@ -89,16 +99,19 @@ public class ApplicationService {
 
         var quiz = quizRepository.findByJobId(jobId).orElse(null);
 
-        Application app = new Application();
+        Application app = existingOpt.orElse(new Application());
         app.setJob(job);
         app.setCandidate(candidate);
         app.setCvPath(fileName);
         app.setQuiz(quiz);
         app.setQuizPassed(false);
         app.setQuizScore(0);
-        app.setStatus("PENDING");
+        app.setAiMatchScore(null);
+        app.setAiSkillsFound(null);
+        app.setStatus(quiz != null ? "PENDING_QUIZ" : "PENDING");
         app.setAppliedAt(LocalDateTime.now());
         final Application save = applicationRepository.save(app);
+        analyzeUploadedCvAndNotifyRecruiter(save.getId());
         return new ApplyResponseDto(save.getId(), quiz != null, save.getStatus());
     }
 
@@ -106,17 +119,32 @@ public class ApplicationService {
         if (status != null) {
             return applicationRepository.findByJobIdAndStatus(jobId, status);
         }
-        return applicationRepository.findByJobId(jobId);
+        return applicationRepository.findByJobId(jobId).stream()
+                .filter(app -> !"PENDING_QUIZ".equals(app.getStatus()))
+                .toList();
     }
 
     public List<ApplicationDto> getApplicationsByJob(Long jobId) {
         List<Application> applications = applicationRepository.findByJobId(jobId);
-        return applications.stream().map(this::mapToDto).toList();
+        return applications.stream()
+                .filter(app -> !"PENDING_QUIZ".equals(app.getStatus()))
+                .map(this::mapToDto).toList();
+    }
+
+    public void assertApplicationBelongsToRecruiter(Long applicationId, String recruiterEmail) {
+        Application app = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+        User recruiter = app.getJob().getRecruiter();
+        if (recruiter == null || !Objects.equals(recruiter.getEmail(), recruiterEmail)) {
+            throw new RuntimeException("Not allowed to manage this application");
+        }
     }
 
     public List<ApplicationDto> getAllApplications() {
         List<Application> applications = applicationRepository.findAll();
-        return applications.stream().map(this::mapToDto).toList();
+        return applications.stream()
+                .filter(app -> !"PENDING_QUIZ".equals(app.getStatus()))
+                .map(this::mapToDto).toList();
     }
 
     private ApplicationDto mapToDto(Application app) {
@@ -126,10 +154,16 @@ public class ApplicationService {
         dto.setStatus(app.getStatus());
         dto.setScore(app.getQuizScore());
         dto.setQuizPassed(app.getQuizPassed());
+        dto.setCheatingSuspected(app.getCheatingSuspected());
+        dto.setQuizDurationSeconds(app.getQuizDurationSeconds());
+        dto.setQuizIntegrityEventCount(app.getQuizIntegrityEventCount());
+        dto.setQuizIntegrityReason(app.getQuizIntegrityReason());
         dto.setJobTitle(app.getJob().getTitle());
-        dto.setCvUrl(baseUrl + "/files/cv/" + app.getCvPath());  
+        dto.setAppliedAt(app.getAppliedAt());
+        dto.setCvUrl("/files/cv/" + UriUtils.encodePathSegment(app.getCvPath(), StandardCharsets.UTF_8));
         dto.setAiMatchScore(app.getAiMatchScore());
         dto.setAiSkillsFound(app.getAiSkillsFound());
+        dto.setMeetingLink(app.getMeetingLink());
         return dto;
     }
 
@@ -159,8 +193,42 @@ public class ApplicationService {
                 .orElseThrow(() -> new RuntimeException("Application not found"));
         String roomName = "job-" + app.getJob().getId() + "-user-" + app.getCandidate().getId();
         String link = "https://meet.jit.si/" + roomName;
+        app.setMeetingLink(link);
         applicationRepository.save(app);
         return link;
+    }
+
+    public Application updateMeetingLink(Long applicationId, String meetingLink) {
+        if (meetingLink == null || meetingLink.isBlank()) {
+            throw new RuntimeException("Meeting link is required");
+        }
+
+        Application app = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+        app.setMeetingLink(meetingLink.trim());
+        return applicationRepository.save(app);
+    }
+
+    public Path getCvPathForRecruiter(Long applicationId, String recruiterEmail) {
+        Application app = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+
+        User recruiter = app.getJob().getRecruiter();
+        if (recruiter == null || !Objects.equals(recruiter.getEmail(), recruiterEmail)) {
+            throw new RuntimeException("Not allowed to view this CV");
+        }
+
+        if (app.getCvPath() == null || app.getCvPath().isBlank()) {
+            throw new RuntimeException("No CV found for this application");
+        }
+
+        Path uploadDirPath = Paths.get("uploads/cv").toAbsolutePath().normalize();
+        Path cvPath = uploadDirPath.resolve(app.getCvPath()).normalize();
+        if (!cvPath.startsWith(uploadDirPath)) {
+            throw new RuntimeException("Invalid CV path");
+        }
+
+        return cvPath;
     }
 
     public void deleteApplication(Long id) {
@@ -170,10 +238,31 @@ public class ApplicationService {
     public List<ApplicationDto> getRankedCandidates(Long jobId) {
         return applicationRepository.findByJobId(jobId)
                 .stream()
+                .filter(app -> !"PENDING_QUIZ".equals(app.getStatus()))
                 .filter(app -> app.getAiMatchScore() != null)
                 .sorted((a, b) -> Integer.compare(b.getAiMatchScore(), a.getAiMatchScore()))
                 .map(this::mapToDto)
                 .toList();
+    }
+
+    private void analyzeUploadedCvAndNotifyRecruiter(Long applicationId) {
+        try {
+            ApplicationDto dto = analyzeApplicationWithAI(applicationId);
+            Application app = applicationRepository.findById(applicationId)
+                    .orElseThrow(() -> new RuntimeException("Application not found"));
+            User recruiter = app.getJob().getRecruiter();
+            if (recruiter != null && recruiter.getEmail() != null && !recruiter.getEmail().isBlank()) {
+                emailService.sendCvAnalysisEmail(
+                        recruiter.getEmail(),
+                        dto.getCandidateName(),
+                        dto.getJobTitle(),
+                        dto.getAiMatchScore(),
+                        dto.getAiSkillsFound()
+                );
+            }
+        } catch (Exception e) {
+            LOGGER.error("Automatic CV analysis failed for application {}", applicationId, e);
+        }
     }
 
     public ApplicationDto analyzeApplicationWithAI(Long applicationId) throws Exception {
@@ -184,12 +273,9 @@ public class ApplicationService {
             throw new RuntimeException("No CV found for this application");
         }
 
-        // ← fetch CV over HTTP instead of reading from local disk
-        String cvUrl = baseUrl + "/files/cv/" + app.getCvPath();
         byte[] pdfBytes;
-        try (InputStream in = new URL(cvUrl).openStream()) {
-            pdfBytes = in.readAllBytes();
-        }
+        Path cvPath = Paths.get("uploads/cv").resolve(app.getCvPath()).toAbsolutePath().normalize();
+        pdfBytes = Files.readAllBytes(cvPath);
 
         String cvText = "";
         try (PDDocument document = PDDocument.load(pdfBytes)) {

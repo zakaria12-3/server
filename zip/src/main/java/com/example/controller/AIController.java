@@ -6,7 +6,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/ai")
-@CrossOrigin
 public class AIController {
 
     private final AIService aiService;

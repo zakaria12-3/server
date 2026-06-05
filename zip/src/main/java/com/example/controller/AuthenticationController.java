@@ -1,6 +1,5 @@
 package com.example.controller;
 
-import com.example.dto.GoogleAuthDto;
 import com.example.dto.LoginUserDto;
 import com.example.dto.RegisterUserDto;
 import com.example.dto.VerifyUserDto;
@@ -43,18 +42,6 @@ public class AuthenticationController {
         User user = authenticationService.authenticate(dto);
 
         String token = jwtService.generateToken(user);;
-
-        return ResponseEntity.ok(
-                new LoginResponse(token, jwtService.getExpirationTime())
-        );
-    }
-
-    @PostMapping("/google")
-    public ResponseEntity<LoginResponse> google(@RequestBody GoogleAuthDto dto) {
-
-        User user = authenticationService.authenticateWithGoogle(dto);
-
-        String token = jwtService.generateToken(user);
 
         return ResponseEntity.ok(
                 new LoginResponse(token, jwtService.getExpirationTime())

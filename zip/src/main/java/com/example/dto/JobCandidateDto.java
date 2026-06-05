@@ -1,5 +1,8 @@
 package com.example.dto;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 public class JobCandidateDto {
 
 
@@ -9,8 +12,11 @@ public class JobCandidateDto {
     private String company;
     private String location;
     private String description;
+    private LocalDateTime createdAt;
+    private LocalDate expirationDate;
 
     private boolean applied;
+    private boolean suspicious;
 
     public Long getId() {
         return id;
@@ -52,11 +58,35 @@ public class JobCandidateDto {
         this.description = description;
     }
 
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDate getExpirationDate() {
+        return expirationDate;
+    }
+
+    public void setExpirationDate(LocalDate expirationDate) {
+        this.expirationDate = expirationDate;
+    }
+
     public boolean isApplied() {
         return applied;
     }
 
     public void setApplied(boolean applied) {
         this.applied = applied;
+    }
+
+    public boolean isSuspicious() {
+        return suspicious;
+    }
+
+    public void setSuspicious(boolean suspicious) {
+        this.suspicious = suspicious;
     }
 }

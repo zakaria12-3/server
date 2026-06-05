@@ -22,5 +22,18 @@ public class RegisterUserDto {
     private String role;
 
     private String companyName;
+    private String companyLegalName;
+    private String registrationNumber;
+    private String taxIdentifier;
+    private String industry;
+    private String companySize;
+    private String companyAddress;
+    private String companyCity;
+    private String companyCountry;
+    private String companyWebsite;
+    private String companyPhone;
+    private String companyEmail;
+    private String recruiterJobTitle;
+    private String recruiterPhone;
 
 }

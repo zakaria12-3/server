@@ -31,15 +31,36 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
     private boolean enabled;
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name="verification_code")
     private String verificationCode;
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name="verification_expiration")
     private LocalDateTime verificationCodeExpiresAt;
+    @Column(name = "email_verified")
+    private Boolean emailVerified = false;
+    private String approvalStatus;
 
     private String bio;
     private String headline;
     private String location;
     private String avatarUrl;
+    private String phone;
+    private String jobTitle;
+    private LocalDateTime createdAt;
+    private LocalDateTime lastLoginAt;
+
+    private Integer riskScore = 0;
+    private Boolean reported = false;
+    private Boolean suspended = false;
+    private String suspensionReason;
+
+    public int getRiskScore() { return riskScore == null ? 0 : riskScore; }
+    public void setRiskScore(Integer riskScore) { this.riskScore = riskScore; }
+    public boolean isReported() { return reported != null && reported; }
+    public void setReported(Boolean reported) { this.reported = reported; }
+    public boolean isSuspended() { return suspended != null && suspended; }
+    public void setSuspended(Boolean suspended) { this.suspended = suspended; }
 
     @Enumerated(EnumType.STRING)
     private Role role;
@@ -55,6 +76,13 @@ public class User implements UserDetails {
     }
     public User(){
 
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
     @Override
     @com.fasterxml.jackson.annotation.JsonIgnore
@@ -91,6 +119,14 @@ public class User implements UserDetails {
     @Override
     public boolean isEnabled(){
         return enabled;
+    }
+
+    public boolean isEmailVerified() {
+        return Boolean.TRUE.equals(emailVerified) || (enabled && verificationCode == null);
+    }
+
+    public boolean getEmailVerified() {
+        return isEmailVerified();
     }
 
 

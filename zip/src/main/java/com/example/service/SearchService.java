@@ -12,6 +12,7 @@ import com.example.repository.PostRepository;
 import com.example.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -35,7 +36,7 @@ public class SearchService {
         List<UserProfileDto> userDtos = userResults.stream().map(this::mapToProfileDto).collect(Collectors.toList());
 
         // 2. Search Jobs
-        List<Job> jobResults = jobRepository.findByTitleContainingIgnoreCaseOrCompanyContainingIgnoreCase(query, query);
+        List<Job> jobResults = jobRepository.searchVisibleJobs(query, LocalDate.now());
         List<JobDto> jobDtos = jobResults.stream().map(this::mapToJobDto).collect(Collectors.toList());
 
         // 3. Search Posts
@@ -70,6 +71,8 @@ public class SearchService {
         dto.setLocation(job.getLocation());
         dto.setCompany(job.getCompany());
         dto.setCreatedAt(job.getCreatedAt());
+        dto.setExpirationDate(job.getExpirationDate());
+        dto.setActive(job.getActive());
         return dto;
     }
 

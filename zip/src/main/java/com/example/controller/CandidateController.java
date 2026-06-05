@@ -3,7 +3,7 @@ package com.example.controller;
 import com.example.dto.ApplyResponseDto;
 import com.example.dto.JobCandidateDto;
 import com.example.dto.QuizDto;
-import com.example.repository.QuizRepository;
+import com.example.dto.QuizSubmissionResultDto;
 import com.example.service.ApplicationService;
 import com.example.service.JobService;
 import com.example.service.QuizService;
@@ -29,7 +29,6 @@ public class CandidateController {
         }
 
              private final JobService jobService;
-            private QuizRepository quizRepository;
              private final ApplicationService applicationService;
 
              private final QuizService quizService;
@@ -69,9 +68,9 @@ public class CandidateController {
 
 
     @PostMapping("/jobs/{jobId}/quiz/submit")
-    public int submitQuiz(
+    public QuizSubmissionResultDto submitQuiz(
             @PathVariable Long jobId,
-            @RequestBody Map<Long, String> answers,
+            @RequestBody Map<String, Object> answers,
             Authentication authentication
     ) {
         String email = authentication.getName();
@@ -95,4 +94,3 @@ public class CandidateController {
 
 
     }
-

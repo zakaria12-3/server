@@ -1,5 +1,7 @@
 package com.example.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.io.*;
@@ -8,7 +10,9 @@ import java.util.*;
 
 @Service
 public class AIService {
-    @Value("${GROQ_API_KEY}")
+    private static final Logger LOGGER = LoggerFactory.getLogger(AIService.class);
+
+    @Value("${GROQ_API_KEY:}")
     private String apiKey;
     private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -17,6 +21,9 @@ public class AIService {
     }
 
     public String askAI(String prompt, boolean requireJson) {
+        if (!hasConfiguredApiKey()) {
+            return "AI error: GROQ_API_KEY is not configured";
+        }
         try {
             URL url = new URL(GROQ_URL);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -56,7 +63,7 @@ public class AIService {
             String line;
             while ((line = br.readLine()) != null) response.append(line);
             if (statusCode >= 300) {
-                System.err.println("Groq API error " + statusCode + ": " + response);
+                LOGGER.error("Groq API error {}: {}", statusCode, response);
                 return "AI error: " + response;
             }
 
@@ -67,8 +74,12 @@ public class AIService {
             return (String) msg.get("content");
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("AI request failed", e);
             return "AI error: " + e.getMessage();
         }
+    }
+
+    public boolean hasConfiguredApiKey() {
+        return apiKey != null && !apiKey.isBlank() && !apiKey.equalsIgnoreCase("changeme");
     }
 }

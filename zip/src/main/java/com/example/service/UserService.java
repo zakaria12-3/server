@@ -68,6 +68,37 @@ public class UserService {
     public User updateUserStatus(Long id, boolean enabled) {
         User user = findById(id);
         user.setEnabled(enabled);
+        if (user.getRole() == Role.ROLE_RECRUITER) {
+            user.setApprovalStatus(enabled ? "APPROVED" : "REJECTED");
+        }
+        User savedUser = userRepository.save(user);
+        if (savedUser.getRole() == Role.ROLE_RECRUITER) {
+            jobService.setJobsActiveByRecruiter(id, enabled);
+        }
+        return savedUser;
+    }
+
+    public User approveRecruiter(Long id) {
+        User user = findById(id);
+        if (user.getRole() != Role.ROLE_RECRUITER) {
+            throw new RuntimeException("Only recruiter accounts can be approved");
+        }
+        if (!user.isEmailVerified()) {
+            throw new RuntimeException("Recruiter must verify email before approval");
+        }
+        user.setEnabled(true);
+        user.setApprovalStatus("APPROVED");
+        return userRepository.save(user);
+    }
+
+    public User rejectRecruiter(Long id) {
+        User user = findById(id);
+        if (user.getRole() != Role.ROLE_RECRUITER) {
+            throw new RuntimeException("Only recruiter accounts can be rejected");
+        }
+        user.setEnabled(false);
+        user.setApprovalStatus("REJECTED");
+        jobService.setJobsActiveByRecruiter(id, false);
         return userRepository.save(user);
     }
 
@@ -95,6 +126,11 @@ public class UserService {
         dto.setHeadline(user.getHeadline());
         dto.setLocation(user.getLocation());
         dto.setAvatarUrl(user.getAvatarUrl());
+        if (user.getCompany() != null) {
+            dto.setCompanyName(user.getCompany().getName());
+        }
+        dto.setReported(user.isReported());
+        dto.setSuspended(user.isSuspended());
         return dto;
     }
 }

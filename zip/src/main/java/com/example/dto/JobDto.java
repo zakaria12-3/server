@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public class JobDto {
 
@@ -20,6 +21,12 @@ public class JobDto {
 
     @NotBlank(message = "Company is required")
     private String company;
+
+    private Long id;
+    private LocalDateTime createdAt;
+    private LocalDate expirationDate;
+    private Boolean active;
+    private boolean suspicious;
 
 
     public String getTitle() {
@@ -54,9 +61,43 @@ public class JobDto {
         this.company = company;
     }
 
+    public Long getId() {
+        return id;
+    }
+
     public void setId(Long id) {
+        this.id = id;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
     public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDate getExpirationDate() {
+        return expirationDate;
+    }
+
+    public void setExpirationDate(LocalDate expirationDate) {
+        this.expirationDate = expirationDate;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
+    public boolean isSuspicious() {
+        return suspicious;
+    }
+
+    public void setSuspicious(boolean suspicious) {
+        this.suspicious = suspicious;
     }
 }
