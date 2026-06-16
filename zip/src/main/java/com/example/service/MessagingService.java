@@ -56,7 +56,6 @@ public class MessagingService {
 
     @Transactional
     public List<MessageDto> getConversation(Long currentUserId, Long partnerId) {
-        // Mark partner's messages as read while fetching
         messageRepo.markAsRead(currentUserId, partnerId);
 
         return messageRepo.findConversation(currentUserId, partnerId)

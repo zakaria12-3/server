@@ -10,10 +10,16 @@ public class JobCandidateDto {
     private Long id;
     private String title;
     private String company;
+    private String category;
     private String location;
     private String description;
     private LocalDateTime createdAt;
     private LocalDate expirationDate;
+    private String recruiterName;
+    private String recruiterTitle;
+    private String recruiterEmail;
+    private Integer recommendationScore;
+    private String recommendationReason;
 
     private boolean applied;
     private boolean suspicious;
@@ -40,6 +46,14 @@ public class JobCandidateDto {
 
     public void setCompany(String company) {
         this.company = company;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public String getLocation() {
@@ -72,6 +86,46 @@ public class JobCandidateDto {
 
     public void setExpirationDate(LocalDate expirationDate) {
         this.expirationDate = expirationDate;
+    }
+
+    public String getRecruiterName() {
+        return recruiterName;
+    }
+
+    public void setRecruiterName(String recruiterName) {
+        this.recruiterName = recruiterName;
+    }
+
+    public String getRecruiterTitle() {
+        return recruiterTitle;
+    }
+
+    public void setRecruiterTitle(String recruiterTitle) {
+        this.recruiterTitle = recruiterTitle;
+    }
+
+    public String getRecruiterEmail() {
+        return recruiterEmail;
+    }
+
+    public void setRecruiterEmail(String recruiterEmail) {
+        this.recruiterEmail = recruiterEmail;
+    }
+
+    public Integer getRecommendationScore() {
+        return recommendationScore;
+    }
+
+    public void setRecommendationScore(Integer recommendationScore) {
+        this.recommendationScore = recommendationScore;
+    }
+
+    public String getRecommendationReason() {
+        return recommendationReason;
+    }
+
+    public void setRecommendationReason(String recommendationReason) {
+        this.recommendationReason = recommendationReason;
     }
 
     public boolean isApplied() {

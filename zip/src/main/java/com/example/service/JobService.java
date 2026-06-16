@@ -2,6 +2,7 @@ package com.example.service;
 
 
 import com.example.dto.JobCandidateDto;
+import com.example.model.Application;
 import com.example.model.Job;
 import com.example.model.User;
 import com.example.repository.*;
@@ -12,7 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class JobService {
@@ -88,6 +92,7 @@ public class JobService {
         job.setTitle(updates.getTitle());
         job.setDescription(updates.getDescription());
         job.setLocation(updates.getLocation());
+        job.setCategory(updates.getCategory());
         assignRecruiterCompany(job, recruiter);
         job.setExpirationDate(updates.getExpirationDate());
         job.setActive(!isExpired(updates.getExpirationDate()));
@@ -131,10 +136,16 @@ public class JobService {
             dto.setId(job.getId());
             dto.setTitle(job.getTitle());
             dto.setCompany(job.getCompany());
+            dto.setCategory(job.getCategory());
             dto.setLocation(job.getLocation());
             dto.setDescription(job.getDescription());
             dto.setCreatedAt(job.getCreatedAt());
             dto.setExpirationDate(job.getExpirationDate());
+            if (job.getRecruiter() != null) {
+                dto.setRecruiterName(job.getRecruiter().getRealUsername());
+                dto.setRecruiterTitle(job.getRecruiter().getJobTitle());
+                dto.setRecruiterEmail(job.getRecruiter().getEmail());
+            }
             boolean applied = applicationRepository
                     .existsByJobIdAndCandidateId(job.getId(), candidate.getId());
 
@@ -144,6 +155,117 @@ public class JobService {
             return dto;
 
         }).toList();
+    }
+
+    public List<JobCandidateDto> getRecommendedJobsForCandidate(String email) {
+        User candidate = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<Application> applications = applicationRepository.findByCandidateId(candidate.getId());
+        Set<String> profileSignals = new LinkedHashSet<>();
+        int strongestCvScore = 0;
+
+        for (Application application : applications) {
+            if (application.getAiMatchScore() != null) {
+                strongestCvScore = Math.max(strongestCvScore, application.getAiMatchScore());
+            }
+            if (application.getAiSkillsFound() != null) {
+                for (String skill : application.getAiSkillsFound().split(",")) {
+                    String normalized = normalizeSignal(skill);
+                    if (!normalized.isBlank()) {
+                        profileSignals.add(normalized);
+                    }
+                }
+            }
+            if (application.getJob() != null) {
+                addSignals(profileSignals, application.getJob().getTitle());
+                addSignals(profileSignals, application.getJob().getCategory());
+            }
+        }
+
+        final int cvScoreForRecommendation = strongestCvScore;
+
+        return jobRepository.findVisibleJobs(LocalDate.now())
+                .stream()
+                .filter(job -> applicationRepository.findByJobIdAndCandidateId(job.getId(), candidate.getId()).isEmpty())
+                .map(job -> {
+                    JobCandidateDto dto = toCandidateDto(job);
+                    int score = recommendationScore(job, profileSignals, cvScoreForRecommendation);
+                    dto.setRecommendationScore(score);
+                    dto.setRecommendationReason(recommendationReason(score, profileSignals));
+                    return dto;
+                })
+                .sorted(Comparator
+                        .comparing((JobCandidateDto dto) -> dto.getRecommendationScore() == null ? 0 : dto.getRecommendationScore())
+                        .reversed()
+                        .thenComparing(JobCandidateDto::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(8)
+                .toList();
+    }
+
+    private JobCandidateDto toCandidateDto(Job job) {
+        JobCandidateDto dto = new JobCandidateDto();
+        dto.setId(job.getId());
+        dto.setTitle(job.getTitle());
+        dto.setCompany(job.getCompany());
+        dto.setCategory(job.getCategory());
+        dto.setLocation(job.getLocation());
+        dto.setDescription(job.getDescription());
+        dto.setCreatedAt(job.getCreatedAt());
+        dto.setExpirationDate(job.getExpirationDate());
+        if (job.getRecruiter() != null) {
+            dto.setRecruiterName(job.getRecruiter().getRealUsername());
+            dto.setRecruiterTitle(job.getRecruiter().getJobTitle());
+            dto.setRecruiterEmail(job.getRecruiter().getEmail());
+        }
+        dto.setSuspicious(job.isSuspicious());
+        return dto;
+    }
+
+    private int recommendationScore(Job job, Set<String> profileSignals, int strongestCvScore) {
+        String haystack = normalizeSignal(String.join(" ",
+                String.valueOf(job.getTitle()),
+                String.valueOf(job.getCategory()),
+                String.valueOf(job.getDescription()),
+                String.valueOf(job.getCompany())
+        ));
+
+        int score = Math.min(35, Math.max(0, strongestCvScore / 2));
+        for (String signal : profileSignals) {
+            if (signal.length() > 2 && haystack.contains(signal)) {
+                score += 12;
+            }
+        }
+
+        if (job.getCreatedAt() != null && job.getCreatedAt().isAfter(LocalDateTime.now().minusDays(14))) {
+            score += 8;
+        }
+
+        return Math.max(55, Math.min(98, score));
+    }
+
+    private String recommendationReason(int score, Set<String> profileSignals) {
+        if (!profileSignals.isEmpty()) {
+            return "Basee sur les competences detectees dans votre CV analyse";
+        }
+        if (score >= 70) {
+            return "Offre recente et pertinente pour les profils tech";
+        }
+        return "Recommandation generale selon les offres actives";
+    }
+
+    private void addSignals(Set<String> signals, String value) {
+        String normalized = normalizeSignal(value);
+        if (normalized.isBlank()) return;
+        for (String token : normalized.split("\\s+")) {
+            if (token.length() > 2) {
+                signals.add(token);
+            }
+        }
+    }
+
+    private String normalizeSignal(String value) {
+        return value == null ? "" : value.toLowerCase().replaceAll("[^a-z0-9+#. ]", " ").trim();
     }
 
 

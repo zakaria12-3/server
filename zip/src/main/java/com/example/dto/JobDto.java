@@ -22,6 +22,8 @@ public class JobDto {
     @NotBlank(message = "Company is required")
     private String company;
 
+    private String category;
+
     private Long id;
     private LocalDateTime createdAt;
     private LocalDate expirationDate;
@@ -59,6 +61,14 @@ public class JobDto {
 
     public void setCompany(String company) {
         this.company = company;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public Long getId() {

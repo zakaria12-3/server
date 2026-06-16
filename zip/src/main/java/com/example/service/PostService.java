@@ -44,7 +44,6 @@ public class PostService {
     public List<PostDto> getAllPosts(String email) {
         User currentUser = userRepository.findByEmail(email).orElseThrow();
         List<Post> posts = (List<Post>) postRepository.findAll();
-        // Sort effectively by latest or let DB sort (for simplicity sort here)
         posts.sort((a,b)-> b.getCreatedAt().compareTo(a.getCreatedAt()));
         
         return posts.stream()
@@ -64,7 +63,6 @@ public class PostService {
             postLikeRepository.save(new PostLike(post, user));
         }
         
-        // Return updated PostDto
         Post updatedPost = postRepository.findById(postId).orElseThrow();
         return mapToDto(updatedPost, user.getId());
     }
@@ -90,7 +88,6 @@ public class PostService {
         dto.setContent(post.getContent());
         dto.setCreatedAt(post.getCreatedAt());
         
-        // counts
         int likeCount = post.getLikes() != null ? post.getLikes().size() : 0;
         dto.setLikesCount(likeCount);
         

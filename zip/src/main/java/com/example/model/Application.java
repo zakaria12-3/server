@@ -88,6 +88,16 @@ public class Application extends ApplyResponseDto {
     @Column(length = 1000)
     private String quizIntegrityReason;
 
+    private LocalDateTime interviewDate;
+
+    public LocalDateTime getInterviewDate() {
+        return interviewDate;
+    }
+
+    public void setInterviewDate(LocalDateTime interviewDate) {
+        this.interviewDate = interviewDate;
+    }
+
     public Boolean getCheatingSuspected() {
         return cheatingSuspected;
     }

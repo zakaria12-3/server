@@ -1,6 +1,7 @@
 package com.example.dto;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public class ApplicationDto {
 
@@ -24,14 +25,54 @@ public class ApplicationDto {
     private Integer quizIntegrityEventCount;
     private String quizIntegrityReason;
     private String jobTitle;
+    private Long jobId;
+    private String company;
+    private String category;
+    private String location;
+    private String description;
+    private LocalDate expirationDate;
+    private String recruiterName;
+    private String recruiterTitle;
+    private String recruiterEmail;
     private LocalDateTime appliedAt;
     private String meetingLink;
+    private LocalDateTime interviewDate;
+
+    public LocalDateTime getInterviewDate() { return interviewDate; }
+    public void setInterviewDate(LocalDateTime interviewDate) { this.interviewDate = interviewDate; }
 
     public String getMeetingLink() { return meetingLink; }
     public void setMeetingLink(String meetingLink) { this.meetingLink = meetingLink; }
 
     public String getJobTitle() { return jobTitle; }
     public void setJobTitle(String jobTitle) { this.jobTitle = jobTitle; }
+
+    public Long getJobId() { return jobId; }
+    public void setJobId(Long jobId) { this.jobId = jobId; }
+
+    public String getCompany() { return company; }
+    public void setCompany(String company) { this.company = company; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public LocalDate getExpirationDate() { return expirationDate; }
+    public void setExpirationDate(LocalDate expirationDate) { this.expirationDate = expirationDate; }
+
+    public String getRecruiterName() { return recruiterName; }
+    public void setRecruiterName(String recruiterName) { this.recruiterName = recruiterName; }
+
+    public String getRecruiterTitle() { return recruiterTitle; }
+    public void setRecruiterTitle(String recruiterTitle) { this.recruiterTitle = recruiterTitle; }
+
+    public String getRecruiterEmail() { return recruiterEmail; }
+    public void setRecruiterEmail(String recruiterEmail) { this.recruiterEmail = recruiterEmail; }
 
     public Boolean getQuizPassed() {
         return quizPassed;

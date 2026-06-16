@@ -1,7 +1,11 @@
 package com.example.controller;
 
 import com.example.service.AIService;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import java.util.Map;
 
 @RestController
@@ -12,18 +16,6 @@ public class AIController {
 
     public AIController(AIService aiService) {
         this.aiService = aiService;
-    }
-
-    @GetMapping("/test")
-    public String test() {
-        String prompt = """
-        Say hello in JSON format.
-        Return ONLY JSON:
-        {
-          "message": "hello"
-        }
-        """;
-        return aiService.askAI(prompt, true);
     }
 
     @PostMapping("/generate-quiz")
@@ -56,7 +48,7 @@ FORMAT:
     @PostMapping("/analyze-cv")
     public String analyzeCv(@RequestBody Map<String, String> body) {
         String cvText = body.get("cvText");
-        String jobTitle = body.get("jobTitle");       // ← was missing
+        String jobTitle = body.get("jobTitle");
         String requirements = body.get("requirements");
         String prompt = """
 You are a strict HR assistant evaluating candidate CVs.

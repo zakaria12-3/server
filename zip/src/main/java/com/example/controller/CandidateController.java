@@ -1,6 +1,7 @@
 package com.example.controller;
 
 import com.example.dto.ApplyResponseDto;
+import com.example.dto.ApplicationDto;
 import com.example.dto.JobCandidateDto;
 import com.example.dto.QuizDto;
 import com.example.dto.QuizSubmissionResultDto;
@@ -46,6 +47,22 @@ public class CandidateController {
     public List<JobCandidateDto> getJobs(Authentication authentication) {
         String email = authentication.getName();
         return jobService.getJobsForCandidate(email);
+    }
+
+    @GetMapping("/recommendations")
+    public List<JobCandidateDto> getRecommendations(Authentication authentication) {
+        String email = authentication.getName();
+        return jobService.getRecommendedJobsForCandidate(email);
+    }
+
+    @GetMapping("/applications")
+    public List<ApplicationDto> getMyApplications(Authentication authentication) {
+        return applicationService.getApplicationsForCandidate(authentication.getName());
+    }
+
+    @GetMapping("/applications/{id}")
+    public ApplicationDto getMyApplication(@PathVariable Long id, Authentication authentication) {
+        return applicationService.getCandidateApplication(id, authentication.getName());
     }
 
 

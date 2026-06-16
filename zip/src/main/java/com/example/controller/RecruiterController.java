@@ -43,6 +43,9 @@ public class RecruiterController {
 
     private final UserRepository userRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${app.upload-dir:uploads/cv}")
+    private String uploadDir;
+
     public RecruiterController(JobService jobService,ApplicationService applicationService,UserRepository userRepository, QuizService quizService) {
         this.jobService = jobService;
         this.quizService = quizService;
@@ -70,6 +73,7 @@ public class RecruiterController {
         job.setTitle(dto.getTitle());
         job.setDescription(dto.getDescription());
         job.setLocation(dto.getLocation());
+        job.setCategory(dto.getCategory());
         job.setCompany(recruiter.getCompany() != null ? recruiter.getCompany().getName() : null);
         job.setExpirationDate(dto.getExpirationDate());
 
@@ -91,6 +95,7 @@ public class RecruiterController {
         job.setTitle(dto.getTitle());
         job.setDescription(dto.getDescription());
         job.setLocation(dto.getLocation());
+        job.setCategory(dto.getCategory());
         job.setCompany(recruiter.getCompany() != null ? recruiter.getCompany().getName() : null);
         job.setExpirationDate(dto.getExpirationDate());
 
@@ -136,7 +141,7 @@ public class RecruiterController {
     @GetMapping("/cv/{filename}")
     public ResponseEntity<Resource> getCv(@PathVariable String filename) throws Exception {
 
-        Path path = Paths.get("uploads/cv").resolve(filename).toAbsolutePath().normalize();
+        Path path = Paths.get(uploadDir).resolve(filename).toAbsolutePath().normalize();
         Resource resource = new UrlResource(path.toUri());
 
         if (!resource.exists() || !resource.isReadable()) {
@@ -158,9 +163,10 @@ public class RecruiterController {
     public Application updateStatus(
             @PathVariable("id") Long id,
             @RequestParam("status") String status,
+            @RequestParam(value = "interviewDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime interviewDate,
             Authentication authentication) {
         applicationService.assertApplicationBelongsToRecruiter(id, authentication.getName());
-        return applicationService.updateStatus(id, status);
+        return applicationService.updateStatus(id, status, interviewDate);
     }
     @PostMapping("/quiz")
     public CreateQuizDto createQuiz(@RequestBody CreateQuizDto dto, Authentication authentication) {

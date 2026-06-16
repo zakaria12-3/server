@@ -28,8 +28,8 @@ public class SecurityConfiguration {
     private final AuthenticationProvider authenticationProvider;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${cors.allowed-origins:http://localhost:4200}")
-    private String allowedOrigins;
+    @Value("${cors.allowed-origin-patterns:http://localhost:4200}")
+    private String allowedOriginPatterns;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -71,8 +71,8 @@ public class SecurityConfiguration {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                Arrays.stream(allowedOrigins.split(","))
+        configuration.setAllowedOriginPatterns(
+                Arrays.stream(allowedOriginPatterns.split(","))
                         .map(String::trim)
                         .filter(origin -> !origin.isBlank())
                         .toList()

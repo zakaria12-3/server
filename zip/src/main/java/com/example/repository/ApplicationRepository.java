@@ -22,4 +22,10 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     List<Application> findByJobIdAndStatus(Long jobId, String status);
 
     void deleteByCandidateId(Long candidateId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(a) FROM Application a WHERE a.candidate.id = :candidateId AND a.status = 'ACCEPTED' AND a.interviewDate >= :startOfDay AND a.interviewDate < :endOfDay AND a.id != :applicationId")
+    long countConflictingInterviews(@org.springframework.data.repository.query.Param("candidateId") Long candidateId, 
+                                    @org.springframework.data.repository.query.Param("startOfDay") java.time.LocalDateTime startOfDay, 
+                                    @org.springframework.data.repository.query.Param("endOfDay") java.time.LocalDateTime endOfDay, 
+                                    @org.springframework.data.repository.query.Param("applicationId") Long applicationId);
 }

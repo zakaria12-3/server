@@ -22,6 +22,8 @@ public class Job {
 
     private String company;
 
+    private String category;
+
     private LocalDateTime createdAt;
 
     private LocalDate expirationDate;
@@ -80,6 +82,14 @@ public class Job {
 
     public void setCompany(String company) {
         this.company = company;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -156,4 +166,9 @@ public class Job {
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<QuizResult> quizResults;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasQuiz")
+    public boolean hasQuiz() {
+        return quiz != null;
+    }
 }

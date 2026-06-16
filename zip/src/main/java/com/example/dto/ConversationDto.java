@@ -15,7 +15,6 @@ public class ConversationDto {
 
     public ConversationDto() {}
 
-    // ── Getters / Setters ──
 
     public Long getUserId()              { return userId; }
     public void setUserId(Long userId)   { this.userId = userId; }

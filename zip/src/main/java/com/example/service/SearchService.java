@@ -31,15 +31,12 @@ public class SearchService {
     public SearchResponseDto globalSearch(String query, Long currentUserId) {
         SearchResponseDto response = new SearchResponseDto();
 
-        // 1. Search Users
         List<User> userResults = userRepository.findByUsernameContainingIgnoreCaseOrHeadlineContainingIgnoreCase(query, query);
         List<UserProfileDto> userDtos = userResults.stream().map(this::mapToProfileDto).collect(Collectors.toList());
 
-        // 2. Search Jobs
         List<Job> jobResults = jobRepository.searchVisibleJobs(query, LocalDate.now());
         List<JobDto> jobDtos = jobResults.stream().map(this::mapToJobDto).collect(Collectors.toList());
 
-        // 3. Search Posts
         List<Post> postResults = postRepository.findByContentContainingIgnoreCase(query);
         List<PostDto> postDtos = postResults.stream().map(post -> mapToPostDto(post, currentUserId)).collect(Collectors.toList());
 
@@ -50,7 +47,6 @@ public class SearchService {
         return response;
     }
 
-    // Mapping helpers
     private UserProfileDto mapToProfileDto(User user) {
         UserProfileDto dto = new UserProfileDto();
         dto.setId(user.getId());

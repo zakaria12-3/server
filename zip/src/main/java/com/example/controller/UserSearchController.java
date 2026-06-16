@@ -14,12 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Adds GET /users/search?q=... to the existing user API.
- *
- * If your project already has a UserController, you can merge this
- * @GetMapping method into it instead of using a separate class.
- */
 @RestController
 @RequestMapping("/users")
 public class UserSearchController {
@@ -30,12 +24,6 @@ public class UserSearchController {
         this.userRepo = userRepo;
     }
 
-    /**
-     * Search users by username or email (case-insensitive, partial match).
-     * Excludes the caller from results. Returns lightweight user objects.
-     *
-     * GET /users/search?q=john
-     */
     @GetMapping("/search")
     public ResponseEntity<List<Map<String, Object>>> searchUsers(
             @RequestParam String q,
@@ -45,7 +33,6 @@ public class UserSearchController {
             return ResponseEntity.badRequest().build();
         }
 
-        // Resolve caller's ID so we can exclude ourselves
         Long callerId = userRepo.findByEmail(userDetails.getUsername())
                 .map(User::getId)
                 .orElse(-1L);

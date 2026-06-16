@@ -102,7 +102,6 @@ public class MessageController {
 
 
     private Long resolveUserId(UserDetails userDetails) {
-        // If your UserDetails implementation is your User entity, cast directly:
         if (userDetails instanceof com.example.model.User u) {
             return u.getId();
         }

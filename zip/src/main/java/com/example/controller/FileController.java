@@ -19,6 +19,9 @@ import java.nio.file.Paths;
 @RestController
 @RequestMapping("/files")
 public class FileController {
+    @org.springframework.beans.factory.annotation.Value("${app.upload-dir:uploads/cv}")
+    private String uploadDir;
+
     private final ApplicationRepository applicationRepository;
     private final UserRepository userRepository;
 
@@ -33,7 +36,7 @@ public class FileController {
             return ResponseEntity.status(403).build();
         }
 
-        Path uploadDirPath = Paths.get("uploads/cv").toAbsolutePath().normalize();
+        Path uploadDirPath = Paths.get(uploadDir).toAbsolutePath().normalize();
         Path path = uploadDirPath.resolve(filename).normalize();
 
         if (!path.startsWith(uploadDirPath)) {
@@ -43,10 +46,7 @@ public class FileController {
         Resource resource = new UrlResource(Objects.requireNonNull(path.toUri()));
 
         if (!resource.exists() || !resource.isReadable()) {
-            String errorHtml = "<html><body style='font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100%; margin: 0; background-color: #f87171; color: white; text-align: center;'><div><h2>CV File Not Found</h2><p>The PDF file for this candidate is missing from the server.</p></div></body></html>";
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_TYPE, "text/html")
-                    .body(new org.springframework.core.io.ByteArrayResource(errorHtml.getBytes()));
+            return ResponseEntity.notFound().build();
         }
 
         String contentType;

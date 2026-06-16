@@ -28,7 +28,6 @@ public class Message {
     @Column(name = "read_at")
     private LocalDateTime readAt;   // null = unread
 
-    // ── Getters / Setters ──────────────────────────────────────────────
 
     public Long getId()                    { return id; }
     public void setId(Long id)             { this.id = id; }

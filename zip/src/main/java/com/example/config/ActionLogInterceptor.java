@@ -20,7 +20,6 @@ public class ActionLogInterceptor implements HandlerInterceptor {
         try {
             actionLogService.logRequest(request, response, SecurityContextHolder.getContext().getAuthentication());
         } catch (Exception ignored) {
-            // Audit logging must never break the user action that just completed.
         }
     }
 }

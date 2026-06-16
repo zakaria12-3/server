@@ -50,13 +50,11 @@ public class QuizService {
         return quizRepository.findAll();
     }
 
-    // 🔍 GET QUIZ ENTITY
     public Quiz getQuizEntityByJob(Long jobId) {
         return quizRepository.findByJobId(jobId)
                 .orElseThrow(() -> new RuntimeException("Quiz not found"));
     }
 
-    // 🔍 GET QUIZ DTO
     public QuizDto getQuizDtoByJob(Long jobId) {
         Quiz quiz = getQuizEntityByJob(jobId);
 
@@ -102,7 +100,6 @@ public class QuizService {
         return dto;
     }
 
-    // 🧠 SUBMIT QUIZ (FIXED)
     public QuizSubmissionResultDto submitQuiz(Long jobId, String email, Map<?, ?> payload) {
 
         Quiz quiz = getQuizEntityByJob(jobId);
@@ -236,7 +233,6 @@ public class QuizService {
                         : Long.valueOf(String.valueOf(key));
                 answers.put(questionId, String.valueOf(value));
             } catch (NumberFormatException ignored) {
-                // Metadata keys from old clients are ignored.
             }
         });
 
@@ -330,7 +326,6 @@ public class QuizService {
         
         quiz.setPassingScore(dto.getPassingScore() != null ? dto.getPassingScore() : 50);
 
-        // Clear existing questions (orphanRemoval handles deletion)
         quiz.getQuestions().clear();
 
         List<Question> newQuestions = new ArrayList<>();
@@ -416,11 +411,9 @@ public class QuizService {
         boolean isArray = false;
 
         if (startArr != -1 && endArr != 0 && startArr < endArr && (startObj == -1 || startArr < startObj)) {
-            // It's an array
             jsonOnly = aiResponse.substring(startArr, endArr);
             isArray = true;
         } else if (startObj != -1 && endObj != 0 && startObj < endObj) {
-            // It's an object
             jsonOnly = aiResponse.substring(startObj, endObj);
         } else {
             throw new RuntimeException("AI did not return valid JSON. Raw: "
@@ -434,7 +427,6 @@ public class QuizService {
             questions = mapper.readValue(jsonOnly, List.class);
         } else {
             Map<String, Object> parsed = mapper.readValue(jsonOnly, Map.class);
-            // ✅ Handle both "questions" and "question" keys
             if (parsed.get("questions") instanceof List) {
                 questions = (List<Map<String, Object>>) parsed.get("questions");
             } else if (parsed.get("question") instanceof List) {
@@ -456,11 +448,9 @@ public class QuizService {
 
         for (Map<String, Object> q : questions) {
 
-            // ✅ Safe string extraction — toString() handles String, Map, Integer, etc.
             String questionText = q.get("question") != null
                     ? q.get("question").toString() : null;
 
-            // ✅ Safe options extraction — each option may be a String or a Map
             List<String> options = new ArrayList<>();
             Object rawOptions = q.get("options");
 
@@ -469,7 +459,6 @@ public class QuizService {
                     if (item instanceof String s) {
                         options.add(s);
                     } else if (item instanceof Map<?, ?> itemMap) {
-                        // AI returned {"text": "option"} instead of "option"
                         Object val = itemMap.values().stream().findFirst().orElse(null);
                         if (val != null) options.add(val.toString());
                     } else if (item != null) {
@@ -478,28 +467,24 @@ public class QuizService {
                 }
             }
 
-            // ✅ Safe correctAnswer extraction
             String correct = null;
             Object rawCorrect = q.get("correctAnswer");
-            if (rawCorrect == null) rawCorrect = q.get("answer"); // fallback key
+            if (rawCorrect == null) rawCorrect = q.get("answer");
 
             if (rawCorrect instanceof String s) {
                 correct = s;
             } else if (rawCorrect instanceof Map<?, ?> m) {
-                // AI returned {"text": "answer"} instead of "answer"
                 Object val = m.values().stream().findFirst().orElse(null);
                 if (val != null) correct = val.toString();
             } else if (rawCorrect != null) {
                 correct = rawCorrect.toString();
             }
 
-            // Skip this question if it's too broken to use
             if (questionText == null || options.size() < 4) {
                 LOGGER.warn("Skipping malformed AI quiz question: {}", q);
                 continue;
             }
 
-            // Resolve letter (A/B/C/D) to actual option text
             if (correct != null && correct.length() == 1 && Character.isLetter(correct.charAt(0))) {
                 int index = correct.toUpperCase().charAt(0) - 'A';
                 if (index >= 0 && index < options.size()) {
@@ -507,7 +492,6 @@ public class QuizService {
                 }
             }
 
-            // Robust exact/ignorecase/trim fallback
             String matchedCorrect = null;
             if (correct != null) {
                 for (String opt : options) {

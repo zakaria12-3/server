@@ -12,9 +12,6 @@ import java.util.List;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-    /**
-     * All messages exchanged between two users, oldest-first.
-     */
     @Query("""
         SELECT m FROM Message m
         WHERE (m.sender.id = :userA AND m.receiver.id = :userB)
@@ -24,11 +21,6 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findConversation(@Param("userA") Long userA,
                                    @Param("userB") Long userB);
 
-    /**
-     * Latest message per conversation partner for the sidebar list.
-     * Returns the most-recent message for every distinct (sender, receiver) pair
-     * involving the given user, deduplicated to one row per conversation.
-     */
     @Query(value = """
         SELECT DISTINCT ON (conversation.partner_id)
             conversation.id,
@@ -68,9 +60,6 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
         """)
     long countAllUnread(@Param("receiverId") Long receiverId);
 
-    /**
-     * Mark all messages from a given sender as read.
-     */
     @Modifying
     @Query("""
         UPDATE Message m

@@ -16,8 +16,6 @@ public class ChatbotController {
         this.chatbotService = chatbotService;
     }
 
-    // POST /chat — body: { "message": "..." }
-    // Role is derived from JWT, so one endpoint serves all user types
     @PostMapping
     public Map<String, String> chat(
             @RequestBody Map<String, String> body,
@@ -25,7 +23,6 @@ public class ChatbotController {
 
         String message = body.get("message");
 
-        // Derive role from JWT authorities
         String role = authentication.getAuthorities().stream()
                 .findFirst()
                 .map(a -> a.getAuthority().replace("ROLE_", "").toLowerCase())

@@ -81,10 +81,14 @@ public class EmailService {
         }
     }
 
-    public void sendInterviewEmail(String to, String jobTitle, String link) {
+    public void sendInterviewEmail(String to, String jobTitle, String link, java.time.LocalDateTime interviewDate) {
         String subject = "Interview Invitation";
+        String dateText = interviewDate != null 
+                ? "<p>Date & Time: <b>" + java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(interviewDate) + "</b></p>"
+                : "";
         String html = "<h2>Interview Scheduled</h2>"
                 + "<p>Your application for <b>" + jobTitle + "</b> was accepted.</p>"
+                + dateText
                 + "<p>Join the meeting here:</p>"
                 + "<a href='" + link + "'>" + link + "</a>";
         try {
