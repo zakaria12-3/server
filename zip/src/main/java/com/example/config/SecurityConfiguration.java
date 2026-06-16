@@ -16,6 +16,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -24,6 +25,12 @@ import java.util.List;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfiguration {
+    private static final List<String> DEFAULT_ALLOWED_ORIGIN_PATTERNS = List.of(
+            "http://localhost:4200",
+            "http://127.0.0.1:4200",
+            "https://*.onrender.com",
+            "https://*.vercel.app"
+    );
 
     private final AuthenticationProvider authenticationProvider;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -70,13 +77,14 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        List<String> resolvedOrigins = new ArrayList<>(DEFAULT_ALLOWED_ORIGIN_PATTERNS);
 
-        configuration.setAllowedOriginPatterns(
-                Arrays.stream(allowedOriginPatterns.split(","))
-                        .map(String::trim)
-                        .filter(origin -> !origin.isBlank())
-                        .toList()
-        );
+        Arrays.stream(allowedOriginPatterns.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .forEach(resolvedOrigins::add);
+
+        configuration.setAllowedOriginPatterns(resolvedOrigins.stream().distinct().toList());
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE","PATCH" ,"OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
