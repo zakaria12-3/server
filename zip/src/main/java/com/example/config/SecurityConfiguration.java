@@ -35,7 +35,7 @@ public class SecurityConfiguration {
     private final AuthenticationProvider authenticationProvider;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${cors.allowed-origin-patterns:http://localhost:4200}")
+   @Value("${cors.allowed-origin-patterns:http://localhost:4200,https://step-up-nine.vercel.app,https://*.vercel.app,https://*.onrender.com}")
     private String allowedOriginPatterns;
 
     @Bean
