@@ -36,6 +36,7 @@ public class JobService {
 
     private final EmailService emailService;
     private final ModerationService moderationService;
+    private final NotificationService notificationService;
 
 
     public List<Job> getJobsByRecruiter(Long recruiterId) {
@@ -43,7 +44,7 @@ public class JobService {
     }
 
 
-    public JobService(JobRepository jobRepository, QuizResultRepository quizResultRepository, QuizRepository quizRepository, UserRepository userRepository, ApplicationRepository applicationRepository, EmailService emailService, ModerationService moderationService) {
+    public JobService(JobRepository jobRepository, QuizResultRepository quizResultRepository, QuizRepository quizRepository, UserRepository userRepository, ApplicationRepository applicationRepository, EmailService emailService, ModerationService moderationService, NotificationService notificationService) {
         this.jobRepository = jobRepository;
         this.quizResultRepository = quizResultRepository;
         this.quizRepository = quizRepository;
@@ -51,6 +52,7 @@ public class JobService {
         this.applicationRepository = applicationRepository;
         this.emailService = emailService;
         this.moderationService = moderationService;
+        this.notificationService = notificationService;
     }
 
     public Job createJob(Job job, User recruiter) {
@@ -69,16 +71,28 @@ public class JobService {
     }
 
     private void notifyCandidatesAboutNewJob(Job savedJob) {
+        if (!isAvailable(savedJob)) {
+            LOGGER.info("Skipping candidate notifications for unavailable job {}", savedJob.getId());
+            return;
+        }
+
         List<User> candidates = userRepository.findByRoleAndEnabledTrue(com.example.model.Role.ROLE_CANDIDATE);
         int notified = 0;
         for (User candidate : candidates) {
-            if (candidate.getEmail() == null || candidate.getEmail().isBlank()) {
-                continue;
+            notificationService.create(
+                    candidate,
+                    "NEW_JOB_POSTED",
+                    "Nouvelle offre publiee",
+                    "Une nouvelle offre " + savedJob.getTitle() + " est disponible chez " + savedJob.getCompany() + ".",
+                    "/jobs/" + savedJob.getId()
+            );
+
+            if (candidate.getEmail() != null && !candidate.getEmail().isBlank()) {
+                emailService.sendJobPostedEmail(candidate.getEmail(), savedJob.getTitle(), savedJob.getCompany(), savedJob.getDescription());
             }
-            emailService.sendJobPostedEmail(candidate.getEmail(), savedJob.getTitle(), savedJob.getCompany(), savedJob.getDescription());
             notified++;
         }
-        LOGGER.info("Sent new job listing notification for job {} to {} candidates", savedJob.getId(), notified);
+        LOGGER.info("Sent new job listing in-app notification for job {} to {} candidates", savedJob.getId(), notified);
     }
 
     public Job updateJob(Long jobId, Job updates, User recruiter) {
@@ -325,9 +339,14 @@ public class JobService {
 
     public Job approveJob(Long jobId) {
         Job job = getById(jobId);
+        boolean wasAvailable = isAvailable(job);
         moderationService.approveJob(job);
         job.setActive(!isExpired(job.getExpirationDate()));
-        return jobRepository.save(job);
+        Job savedJob = jobRepository.save(job);
+        if (!wasAvailable && isAvailable(savedJob)) {
+            java.util.concurrent.CompletableFuture.runAsync(() -> notifyCandidatesAboutNewJob(savedJob));
+        }
+        return savedJob;
     }
 
     public Job blockJob(Long jobId, String reason) {

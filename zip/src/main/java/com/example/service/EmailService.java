@@ -65,12 +65,17 @@ public class EmailService {
         sendEmail(to, subject, htmlContent);
     }
 
+    public void sendPasswordResetEmail(String to, String subject, String htmlContent) {
+        sendEmail(to, subject, htmlContent);
+    }
+
     public void sendApplicationResultEmail(String to, String status, String jobTitle) {
+        boolean accepted = "FINAL_ACCEPTED".equalsIgnoreCase(status) || "ACCEPTED".equalsIgnoreCase(status);
         String subject = "Your Job Application Status";
         String html = "<html><body style='font-family: Arial;'>"
                 + "<h2>Application Update</h2>"
-                + "<p>Your application for <b>" + jobTitle + "</b> has been <b>" + status + "</b>.</p>"
-                + ("ACCEPTED".equalsIgnoreCase(status)
+                + "<p>Your application for <b>" + jobTitle + "</b> has been <b>" + (accepted ? "accepted" : "rejected") + "</b>.</p>"
+                + (accepted
                     ? "<p style='color:green;'>Congratulations! You have been selected!</p>"
                     : "<p style='color:red;'>We regret to inform you that you were not selected.</p>")
                 + "</body></html>";
@@ -87,7 +92,7 @@ public class EmailService {
                 ? "<p>Date & Time: <b>" + java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(interviewDate) + "</b></p>"
                 : "";
         String html = "<h2>Interview Scheduled</h2>"
-                + "<p>Your application for <b>" + jobTitle + "</b> was accepted.</p>"
+                + "<p>Your application for <b>" + jobTitle + "</b> was selected for an interview.</p>"
                 + dateText
                 + "<p>Join the meeting here:</p>"
                 + "<a href='" + link + "'>" + link + "</a>";

@@ -3,6 +3,7 @@ package com.example.service;
 import com.example.dto.ApplyResponseDto;
 import com.example.dto.ApplicationDto;
 import com.example.model.Application;
+import com.example.model.ApplicationStatus;
 import com.example.model.Job;
 import com.example.model.User;
 import com.example.repository.ApplicationRepository;
@@ -19,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Map;
@@ -43,6 +45,7 @@ public class ApplicationService {
     private final EmailService emailService;
     private final AIService aiService;
     private final JobService jobService;
+    private final NotificationService notificationService;
 
     public ApplicationService(ApplicationRepository applicationRepository,
                               JobRepository jobRepository,
@@ -50,7 +53,8 @@ public class ApplicationService {
                               QuizRepository quizRepository,
                               EmailService emailService,
                               AIService aiService,
-                              JobService jobService) {
+                              JobService jobService,
+                              NotificationService notificationService) {
         this.applicationRepository = applicationRepository;
         this.jobRepository = jobRepository;
         this.userRepository = userRepository;
@@ -58,6 +62,7 @@ public class ApplicationService {
         this.emailService = emailService;
         this.aiService = aiService;
         this.jobService = jobService;
+        this.notificationService = notificationService;
     }
 
     public ApplyResponseDto apply(Long jobId, String email, MultipartFile file) throws IOException {
@@ -75,7 +80,7 @@ public class ApplicationService {
         var existingOpt = applicationRepository.findByJobIdAndCandidateId(jobId, candidate.getId());
         if (existingOpt.isPresent()) {
             Application existing = existingOpt.get();
-            if (!"PENDING_QUIZ".equals(existing.getStatus())) {
+            if (!ApplicationStatus.isQuizPending(existing.getStatus())) {
                 throw new RuntimeException("You already applied to this job");
             }
         }
@@ -110,7 +115,7 @@ public class ApplicationService {
         app.setQuizScore(0);
         app.setAiMatchScore(null);
         app.setAiSkillsFound(null);
-        app.setStatus(quiz != null ? "PENDING_QUIZ" : "PENDING");
+        app.setStatus(quiz != null ? ApplicationStatus.PENDING_QUIZ.name() : ApplicationStatus.APPLIED.name());
         app.setAppliedAt(LocalDateTime.now());
         final Application save = applicationRepository.save(app);
 
@@ -128,22 +133,27 @@ public class ApplicationService {
         }
 
         notifyRecruiterAboutCvAnalysis(save.getId(), analysis);
+        notifyRecruiterAboutNewApplication(save);
+        notifyCandidateAboutSubmittedApplication(save);
         return new ApplyResponseDto(save.getId(), quiz != null, save.getStatus());
     }
 
     public List<Application> getApplications(Long jobId, String status) {
         if (status != null) {
-            return applicationRepository.findByJobIdAndStatus(jobId, status);
+            String requestedStatus = ApplicationStatus.normalize(status);
+            return applicationRepository.findByJobId(jobId).stream()
+                    .filter(app -> requestedStatus.equals(ApplicationStatus.normalize(app.getStatus())))
+                    .toList();
         }
         return applicationRepository.findByJobId(jobId).stream()
-                .filter(app -> !"PENDING_QUIZ".equals(app.getStatus()))
+                .filter(app -> !ApplicationStatus.isQuizPending(app.getStatus()))
                 .toList();
     }
 
     public List<ApplicationDto> getApplicationsByJob(Long jobId) {
         List<Application> applications = applicationRepository.findByJobId(jobId);
         return applications.stream()
-                .filter(app -> !"PENDING_QUIZ".equals(app.getStatus()))
+                .filter(app -> !ApplicationStatus.isQuizPending(app.getStatus()))
                 .map(this::mapToDto).toList();
     }
 
@@ -190,7 +200,7 @@ public class ApplicationService {
     public List<ApplicationDto> getAllApplications() {
         List<Application> applications = applicationRepository.findAll();
         return applications.stream()
-                .filter(app -> !"PENDING_QUIZ".equals(app.getStatus()))
+                .filter(app -> !ApplicationStatus.isQuizPending(app.getStatus()))
                 .map(this::mapToDto).toList();
     }
 
@@ -198,7 +208,7 @@ public class ApplicationService {
         ApplicationDto dto = new ApplicationDto();
         dto.setId(app.getId());
         dto.setCandidateName(app.getCandidate().getRealUsername());
-        dto.setStatus(app.getStatus());
+        dto.setStatus(ApplicationStatus.normalize(app.getStatus()));
         dto.setScore(app.getQuizScore());
         dto.setQuizPassed(app.getQuizPassed());
         dto.setCheatingSuspected(app.getCheatingSuspected());
@@ -226,6 +236,7 @@ public class ApplicationService {
         dto.setAiSkillsFound(app.getAiSkillsFound());
         dto.setMeetingLink(app.getMeetingLink());
         dto.setInterviewDate(app.getInterviewDate());
+        dto.setMeetingCompletedAt(app.getMeetingCompletedAt());
         return dto;
     }
 
@@ -233,31 +244,98 @@ public class ApplicationService {
         Application app = applicationRepository.findById(Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Application not found"));
 
-        if ("ACCEPTED".equalsIgnoreCase(status) && interviewDate != null) {
-            LocalDateTime startOfDay = interviewDate.toLocalDate().atStartOfDay();
-            LocalDateTime endOfDay = startOfDay.plusDays(1);
-            long conflicts = applicationRepository.countConflictingInterviews(app.getCandidate().getId(), startOfDay, endOfDay, id);
-            if (conflicts > 0) {
-                throw new RuntimeException("The candidate already has an interview scheduled on this date.");
-            }
-            app.setInterviewDate(interviewDate);
-        }
-
-        app.setStatus(status);
+        String normalizedStatus = ApplicationStatus.normalize(status);
+        String currentStatus = ApplicationStatus.normalize(app.getStatus());
         String email = app.getCandidate().getEmail();
         String jobTitle = app.getJob().getTitle();
 
-        if ("ACCEPTED".equalsIgnoreCase(status)) {
+        if (ApplicationStatus.INTERVIEW_SCHEDULED.name().equals(normalizedStatus)) {
+            scheduleInterview(app, interviewDate);
             if (app.getMeetingLink() == null) {
                 String meetingLink = generateMeeting(app.getId());
                 app.setMeetingLink(meetingLink);
             }
+            app.setStatus(ApplicationStatus.INTERVIEW_SCHEDULED.name());
             emailService.sendInterviewEmail(email, jobTitle, app.getMeetingLink(), app.getInterviewDate());
+            notificationService.create(
+                    app.getCandidate(),
+                    "APPLICATION_STATUS",
+                    "Entretien planifie",
+                    "Votre candidature pour " + jobTitle + " a ete preselectionnee pour un entretien.",
+                    "/candidate/applications/" + app.getId()
+            );
+        } else if (ApplicationStatus.INTERVIEW_COMPLETED.name().equals(normalizedStatus)) {
+            if (!ApplicationStatus.INTERVIEW_SCHEDULED.name().equals(currentStatus)) {
+                throw new RuntimeException("The interview can only be marked as completed after it has been scheduled.");
+            }
+            app.setStatus(ApplicationStatus.INTERVIEW_COMPLETED.name());
+            app.setMeetingCompletedAt(LocalDateTime.now());
+            notificationService.create(
+                    app.getCandidate(),
+                    "APPLICATION_STATUS",
+                    "Entretien effectue",
+                    "Votre entretien pour " + jobTitle + " est termine. Une decision finale sera communiquee prochainement.",
+                    "/candidate/applications/" + app.getId()
+            );
+        } else if (ApplicationStatus.FINAL_ACCEPTED.name().equals(normalizedStatus) || ApplicationStatus.REJECTED.name().equals(normalizedStatus)) {
+            if (!ApplicationStatus.INTERVIEW_COMPLETED.name().equals(currentStatus)) {
+                throw new RuntimeException("A final decision can only be taken after the interview is marked as completed.");
+            }
+            app.setStatus(normalizedStatus);
+            emailService.sendApplicationResultEmail(email, normalizedStatus, jobTitle);
+            notificationService.create(
+                    app.getCandidate(),
+                    "APPLICATION_STATUS",
+                    ApplicationStatus.isAccepted(normalizedStatus) ? "Candidature acceptee" : "Candidature refusee",
+                    ApplicationStatus.isAccepted(normalizedStatus)
+                            ? "Votre candidature pour " + jobTitle + " a ete acceptee."
+                            : "Votre candidature pour " + jobTitle + " n'a pas ete retenue.",
+                    "/candidate/applications/" + app.getId()
+            );
         } else {
-            emailService.sendApplicationResultEmail(email, status, jobTitle);
+            throw new RuntimeException("Unsupported application status");
         }
 
         return applicationRepository.save(app);
+    }
+
+    private void scheduleInterview(Application app, LocalDateTime interviewDate) {
+        if (interviewDate == null) {
+            throw new RuntimeException("Interview date is required");
+        }
+        if (interviewDate.isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Interview date must be today or later.");
+        }
+
+        Job job = app.getJob();
+        if (job != null && job.getExpirationDate() != null) {
+            LocalDateTime deadline = job.getExpirationDate().atTime(LocalTime.MAX);
+            if (interviewDate.isAfter(deadline)) {
+                throw new RuntimeException("Interview date cannot be after the job deadline.");
+            }
+        }
+
+        long candidateConflicts = applicationRepository.countCandidateInterviewAtSameTime(
+                app.getCandidate().getId(),
+                interviewDate,
+                app.getId()
+        );
+        if (candidateConflicts > 0) {
+            throw new RuntimeException("The candidate already has another interview at this date and time.");
+        }
+
+        if (job != null && job.getRecruiter() != null) {
+            long recruiterConflicts = applicationRepository.countRecruiterInterviewAtSameTime(
+                    job.getRecruiter().getId(),
+                    interviewDate,
+                    app.getId()
+            );
+            if (recruiterConflicts > 0) {
+                throw new RuntimeException("The recruiter already has another interview at this date and time.");
+            }
+        }
+
+        app.setInterviewDate(interviewDate);
     }
 
     public String generateMeeting(Long applicationId) {
@@ -310,7 +388,7 @@ public class ApplicationService {
     public List<ApplicationDto> getRankedCandidates(Long jobId) {
         return applicationRepository.findByJobId(jobId)
                 .stream()
-                .filter(app -> !"PENDING_QUIZ".equals(app.getStatus()))
+                .filter(app -> !ApplicationStatus.isQuizPending(app.getStatus()))
                 .filter(app -> app.getAiMatchScore() != null)
                 .sorted((a, b) -> Integer.compare(b.getAiMatchScore(), a.getAiMatchScore()))
                 .map(this::mapToDto)
@@ -339,6 +417,35 @@ public class ApplicationService {
                     dto.getAiSkillsFound()
             );
         }
+    }
+
+    private void notifyRecruiterAboutNewApplication(Application app) {
+        User recruiter = app.getJob() == null ? null : app.getJob().getRecruiter();
+        if (recruiter == null) {
+            return;
+        }
+
+        notificationService.create(
+                recruiter,
+                "NEW_APPLICATION",
+                "Nouvelle candidature",
+                app.getCandidate().getRealUsername() + " a postule a l'offre " + app.getJob().getTitle() + ".",
+                "/recruiter/jobs/" + app.getJob().getId() + "/applications"
+        );
+    }
+
+    private void notifyCandidateAboutSubmittedApplication(Application app) {
+        if (app.getCandidate() == null || app.getJob() == null) {
+            return;
+        }
+
+        notificationService.create(
+                app.getCandidate(),
+                "APPLICATION_SUBMITTED",
+                "Candidature envoyee",
+                "Votre candidature pour " + app.getJob().getTitle() + " a bien ete envoyee.",
+                "/candidate/applications/" + app.getId()
+        );
     }
 
     private void cleanupRejectedApplication(Application app, Path filePath) {

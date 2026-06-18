@@ -184,6 +184,30 @@ public class AuthenticationService {
         }
     }
 
+    @Transactional
+    public void requestPasswordReset(String email) {
+        User user = findUserByEmail(email);
+        user.setPasswordResetCode(generateVerificationCode());
+        user.setPasswordResetCodeExpiresAt(LocalDateTime.now().plusMinutes(15));
+        userRepository.save(user);
+        sendPasswordResetEmail(user);
+    }
+
+    public void verifyPasswordResetCode(String email, String code) {
+        User user = findUserByEmail(email);
+        validatePasswordResetCode(user, code);
+    }
+
+    @Transactional
+    public void resetPassword(String email, String code, String newPassword) {
+        User user = findUserByEmail(email);
+        validatePasswordResetCode(user, code);
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordResetCode(null);
+        user.setPasswordResetCodeExpiresAt(null);
+        userRepository.save(user);
+    }
+
     public void sendVerificationEmail(User user) {
         String subject = "Account Verification !";
         String verificationCode = user.getVerificationCode();
@@ -202,6 +226,45 @@ public class AuthenticationService {
 
         emailService.sendVerificationEmail(user.getEmail(), subject, htmlMessage);
         LOGGER.info("Verification email sent to {}", user.getEmail());
+    }
+
+    public void sendPasswordResetEmail(User user) {
+        String subject = "Password Reset Code";
+        String resetCode = user.getPasswordResetCode();
+        String htmlMessage = "<html>"
+                + "<body style=\"font-family: Arial, sans-serif;\">"
+                + "<div style=\"background-color: #f5f5f5; padding: 20px;\">"
+                + "<h2 style=\"color: #333;\">Reset your StepUp password</h2>"
+                + "<p style=\"font-size: 16px;\">Use the code below to change your password. This code expires in 15 minutes.</p>"
+                + "<div style=\"background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1);\">"
+                + "<h3 style=\"color: #333;\">Reset Code:</h3>"
+                + "<p style=\"font-size: 18px; font-weight: bold; color: #007bff;\">" + resetCode + "</p>"
+                + "</div>"
+                + "<p style=\"font-size: 13px; color: #555;\">If you did not request this, you can ignore this email.</p>"
+                + "</div>"
+                + "</body>"
+                + "</html>";
+
+        emailService.sendPasswordResetEmail(user.getEmail(), subject, htmlMessage);
+        LOGGER.info("Password reset email sent to {}", user.getEmail());
+    }
+
+    private User findUserByEmail(String email) {
+        String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
+        return userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("User not found !"));
+    }
+
+    private void validatePasswordResetCode(User user, String code) {
+        if (user.getPasswordResetCode() == null || user.getPasswordResetCodeExpiresAt() == null) {
+            throw new RuntimeException("No active password reset code. Please request a new code.");
+        }
+        if (user.getPasswordResetCodeExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Password reset code has expired !");
+        }
+        if (!user.getPasswordResetCode().equals(String.valueOf(code))) {
+            throw new RuntimeException("Invalid password reset code !");
+        }
     }
 
     private String generateVerificationCode() {

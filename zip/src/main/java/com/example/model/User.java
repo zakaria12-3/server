@@ -37,6 +37,12 @@ public class User implements UserDetails {
     @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name="verification_expiration")
     private LocalDateTime verificationCodeExpiresAt;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "password_reset_code")
+    private String passwordResetCode;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "password_reset_expiration")
+    private LocalDateTime passwordResetCodeExpiresAt;
     @Column(name = "email_verified")
     private Boolean emailVerified = false;
     private String approvalStatus;

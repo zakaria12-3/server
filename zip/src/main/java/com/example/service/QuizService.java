@@ -175,13 +175,13 @@ public class QuizService {
         app.setQuizIntegrityReason(integrityDecision.reason());
 
         if (repeatedCheating) {
-            app.setStatus("REJECTED_CHEATING");
+            app.setStatus(ApplicationStatus.REJECTED_CHEATING.name());
         } else if (integrityDecision.cheatingSuspected()) {
-            app.setStatus("PENDING");
+            app.setStatus(ApplicationStatus.APPLIED.name());
         } else if (!passed) {
-            app.setStatus("REJECTED");
+            app.setStatus(ApplicationStatus.REJECTED.name());
         } else {
-            app.setStatus("PENDING");
+            app.setStatus(ApplicationStatus.APPLIED.name());
         }
 
         applicationRepository.save(app);
@@ -355,9 +355,9 @@ public class QuizService {
         if (quizRepository.findByJobId(jobId).isEmpty()) {
             throw new RuntimeException("Quiz not found");
         }
-        List<Application> waitingApplications = applicationRepository.findByJobIdAndStatus(jobId, "PENDING_QUIZ");
+        List<Application> waitingApplications = applicationRepository.findByJobIdAndStatus(jobId, ApplicationStatus.PENDING_QUIZ.name());
         for (Application application : waitingApplications) {
-            application.setStatus("PENDING");
+            application.setStatus(ApplicationStatus.APPLIED.name());
             application.setQuiz(null);
             application.setQuizPassed(false);
         }

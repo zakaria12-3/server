@@ -37,9 +37,13 @@ public class ApplicationDto {
     private LocalDateTime appliedAt;
     private String meetingLink;
     private LocalDateTime interviewDate;
+    private LocalDateTime meetingCompletedAt;
 
     public LocalDateTime getInterviewDate() { return interviewDate; }
     public void setInterviewDate(LocalDateTime interviewDate) { this.interviewDate = interviewDate; }
+
+    public LocalDateTime getMeetingCompletedAt() { return meetingCompletedAt; }
+    public void setMeetingCompletedAt(LocalDateTime meetingCompletedAt) { this.meetingCompletedAt = meetingCompletedAt; }
 
     public String getMeetingLink() { return meetingLink; }
     public void setMeetingLink(String meetingLink) { this.meetingLink = meetingLink; }

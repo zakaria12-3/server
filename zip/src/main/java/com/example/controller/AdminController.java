@@ -3,12 +3,10 @@ package com.example.controller;
 
 import com.example.model.User;
 import com.example.model.Job;
-import com.example.model.ActionLog;
 import com.example.dto.ApplicationDto;
 import com.example.service.UserService;
 import com.example.service.JobService;
 import com.example.service.ApplicationService;
-import com.example.service.ActionLogService;
 import com.example.service.ReportService;
 import com.example.service.QuizService;
 import com.example.dto.ReportDto;
@@ -28,15 +26,13 @@ public class AdminController {
     private final UserService userService;
     private final JobService jobService;
     private final ApplicationService applicationService;
-    private final ActionLogService actionLogService;
     private final ReportService reportService;
     private final QuizService quizService;
 
-    public AdminController(UserService userService, JobService jobService, ApplicationService applicationService, ActionLogService actionLogService, ReportService reportService, QuizService quizService) {
+    public AdminController(UserService userService, JobService jobService, ApplicationService applicationService, ReportService reportService, QuizService quizService) {
         this.userService = userService;
         this.jobService = jobService;
         this.applicationService = applicationService;
-        this.actionLogService = actionLogService;
         this.reportService = reportService;
         this.quizService = quizService;
     }
@@ -59,11 +55,6 @@ public class AdminController {
     @GetMapping("/applications")
     public List<ApplicationDto> getAllApplications() {
         return applicationService.getAllApplications();
-    }
-
-    @GetMapping("/action-logs")
-    public List<ActionLog> getActionLogs(@org.springframework.web.bind.annotation.RequestParam(required = false) String role) {
-        return actionLogService.getRecentLogs(role);
     }
 
     @GetMapping("/quizzes")

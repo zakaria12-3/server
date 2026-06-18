@@ -39,7 +39,7 @@ public class AIService {
             message.put("content", prompt);
 
             Map<String, Object> body = new HashMap<>();
-            body.put("model", "llama-3.1-8b-instant"); // ← updated model
+            body.put("model", "llama-3.1-8b-instant");
             body.put("messages", List.of(message));
             body.put("max_tokens", 1024);
             if (requireJson) {

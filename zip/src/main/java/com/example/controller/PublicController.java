@@ -1,8 +1,10 @@
 package com.example.controller;
 
+import com.example.dto.PlatformRatingSummaryDto;
 import com.example.dto.JobCandidateDto;
 import com.example.model.Job;
 import com.example.repository.JobRepository;
+import com.example.service.PlatformRatingService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,9 +19,11 @@ import java.util.Map;
 public class PublicController {
 
     private final JobRepository jobRepository;
+    private final PlatformRatingService platformRatingService;
 
-    public PublicController(JobRepository jobRepository) {
+    public PublicController(JobRepository jobRepository, PlatformRatingService platformRatingService) {
         this.jobRepository = jobRepository;
+        this.platformRatingService = platformRatingService;
     }
 
     @GetMapping("/stats")
@@ -28,6 +32,7 @@ public class PublicController {
                 .stream()
                 .map(this::toJobDto)
                 .toList();
+        PlatformRatingSummaryDto ratings = platformRatingService.getSummary();
 
         return Map.of(
                 "totalJobs", jobs.size(),
@@ -36,7 +41,9 @@ public class PublicController {
                         .filter(company -> company != null && !company.isBlank())
                         .distinct()
                         .count(),
-                "recentJobs", jobs.stream().limit(5).toList()
+                "recentJobs", jobs.stream().limit(5).toList(),
+                "averageRating", ratings.getAverageRating(),
+                "ratingCount", ratings.getRatingCount()
         );
     }
 

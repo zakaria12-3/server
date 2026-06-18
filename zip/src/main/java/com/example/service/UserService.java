@@ -19,13 +19,16 @@ public class UserService {
     private final ApplicationRepository applicationRepository;
     private final QuizResultRepository quizResultRepository;
     private final JobService jobService;
+    private final NotificationService notificationService;
 
     public UserService(UserRepository userRepository, ApplicationRepository applicationRepository,
-                       QuizResultRepository quizResultRepository, JobService jobService) {
+                       QuizResultRepository quizResultRepository, JobService jobService,
+                       NotificationService notificationService) {
         this.userRepository = userRepository;
         this.applicationRepository = applicationRepository;
         this.quizResultRepository = quizResultRepository;
         this.jobService = jobService;
+        this.notificationService = notificationService;
     }
 
     public List<User> allUsers(){
@@ -88,7 +91,15 @@ public class UserService {
         }
         user.setEnabled(true);
         user.setApprovalStatus("APPROVED");
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        notificationService.create(
+                savedUser,
+                "ACCOUNT_STATUS",
+                "Compte recruteur approuve",
+                "Votre compte recruteur est maintenant approuve. Vous pouvez publier des offres et gerer vos candidatures.",
+                "/recruiter"
+        );
+        return savedUser;
     }
 
     public User rejectRecruiter(Long id) {
@@ -99,7 +110,15 @@ public class UserService {
         user.setEnabled(false);
         user.setApprovalStatus("REJECTED");
         jobService.setJobsActiveByRecruiter(id, false);
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        notificationService.create(
+                savedUser,
+                "ACCOUNT_STATUS",
+                "Compte recruteur refuse",
+                "Votre compte recruteur a ete refuse par l'administration. Contactez le support si vous pensez qu'il s'agit d'une erreur.",
+                "/profile"
+        );
+        return savedUser;
     }
 
     public UserProfileDto getUserProfile(Long id) {

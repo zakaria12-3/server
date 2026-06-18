@@ -80,7 +80,7 @@ public class Application extends ApplyResponseDto {
         this.status = status;
     }
 
-    private String status = "PENDING";
+    private String status = ApplicationStatus.APPLIED.name();
     private Boolean cheatingSuspected = false;
     private Integer quizDurationSeconds;
     private Integer quizIntegrityEventCount = 0;
@@ -89,6 +89,7 @@ public class Application extends ApplyResponseDto {
     private String quizIntegrityReason;
 
     private LocalDateTime interviewDate;
+    private LocalDateTime meetingCompletedAt;
 
     public LocalDateTime getInterviewDate() {
         return interviewDate;
@@ -96,6 +97,14 @@ public class Application extends ApplyResponseDto {
 
     public void setInterviewDate(LocalDateTime interviewDate) {
         this.interviewDate = interviewDate;
+    }
+
+    public LocalDateTime getMeetingCompletedAt() {
+        return meetingCompletedAt;
+    }
+
+    public void setMeetingCompletedAt(LocalDateTime meetingCompletedAt) {
+        this.meetingCompletedAt = meetingCompletedAt;
     }
 
     public Boolean getCheatingSuspected() {
